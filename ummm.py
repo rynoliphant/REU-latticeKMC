@@ -1,5 +1,5 @@
 import numpy as np
-from random import shuffle
+import random
 import time
 
 class Element:
@@ -139,7 +139,7 @@ class Config:
             elif len(atom_list)<len(self.lat_positions):
                 atom_list.append(Atom(element_types[-1],'LAT_'+element_types[-1].e+str(len(self.lat_positions))))
             if randm==True:
-                shuffle(atom_list)
+                random.shuffle(atom_list)
                 self.atoms=atom_list
             else:
                 self.atoms = atom_list
@@ -171,7 +171,7 @@ class Config:
             elif len(inter_atom_list)<len(self.inter_positions):
                 inter_atom_list.append(Atom(inter_element_types[-1],'INT_'+inter_element_types[-1].e+str(len(self.inter_positions))))
             if randm==True:
-                shuffle(inter_atom_list)
+                random.shuffle(inter_atom_list)
                 self.inter_atoms=inter_atom_list
             else:
                 self.inter_atoms = inter_atom_list
@@ -205,7 +205,7 @@ class Config:
             elif len(atom_list)<len(self.lat_positions):
                 atom_list.append(Atom(element_types[-1],'LAT_'+element_types[-1].e+str(len(self.lat_positions))))
             if randm==True:
-                shuffle(atom_list)
+                random.shuffle(atom_list)
                 self.atoms=atom_list
             else:
                 self.atoms = atom_list
@@ -245,7 +245,7 @@ class Config:
             elif len(inter_atom_list)<len(self.inter_positions):
                 inter_atom_list.append(Atom(inter_element_types[-1],'INT_'+inter_element_types[-1].e+str(len(self.inter_positions))))
             if randm==True:
-                shuffle(inter_atom_list)
+                random.shuffle(inter_atom_list)
                 self.inter_atoms=inter_atom_list
             else:
                 self.inter_atoms = inter_atom_list
@@ -279,7 +279,7 @@ class Config:
             elif len(atom_list)<len(self.lat_positions):
                 atom_list.append(Atom(element_types[-1],'LAT_'+element_types[-1].e+str(len(self.lat_positions))))
             if randm==True:
-                shuffle(atom_list)
+                random.shuffle(atom_list)
                 self.atoms=atom_list
             else:
                 self.atoms = atom_list
@@ -306,7 +306,7 @@ class Config:
             elif len(inter_atom_list)<len(self.inter_positions):
                 inter_atom_list.append(Atom(inter_element_types[-1],'INT_'+inter_element_types[-1].e+str(len(self.inter_positions))))
             if randm==True:
-                shuffle(inter_atom_list)
+                random.shuffle(inter_atom_list)
                 self.inter_atoms=inter_atom_list
             else:
                 self.inter_atoms = inter_atom_list
@@ -341,14 +341,25 @@ class Config:
             #List of Atoms for Lattice Sites
             total = nx*ny*nz*len(self.unit_cell)
             self.total = total
-            atom_list = [Atom(element_types[i],'LAT_'+element_types[i].e+str(position)) for i,r in enumerate(ratio) 
-                         for position in range(round((r/sum(ratio))*total))]
+            if len(element_types)>2 and randm==True:
+                atom_list = [Atom(element_types[i],'LAT_'+element_types[i].e+str(position)) for i in range(0,2) 
+                            for position in range(round((ratio[i]/sum(ratio[0:2]))*total))]
+                print(round((ratio[0]/sum(ratio[0:2]))*total))
+                print(round((ratio[1]/sum(ratio[0:2]))*total))
+                for inx,rat in enumerate(ratio[2:]):
+                    for position in range(round((rat/sum(ratio))*total)):
+                        in_num = random.randrange(0,len(atom_list)-1)
+                        print(in_num)
+                        #atom_list[in_num]=Atom(element_types[inx],'LAT_'+element_types[inx].e+str(position))
+            else:
+                atom_list = [Atom(element_types[i],'LAT_'+element_types[i].e+str(position)) for i,r in enumerate(ratio) 
+                            for position in range(round((r/sum(ratio))*total))]
             if len(atom_list)>len(self.lat_positions):
                 atom_list.pop(-1)
             elif len(atom_list)<len(self.lat_positions):
                 atom_list.append(Atom(element_types[-1],'LAT_'+element_types[-1].e+str(len(self.lat_positions))))
             if randm==True:
-                #shuffle(atom_list)
+                #random.shuffle(atom_list)
                 self.atoms=atom_list
             else:
                 self.atoms = atom_list
@@ -376,7 +387,7 @@ class Config:
             elif len(inter_atom_list)<len(self.inter_positions):
                 inter_atom_list.append(Atom(inter_element_types[-1],'INT_'+inter_element_types[-1].e+str(len(self.inter_positions))))
             if randm==True:
-                shuffle(inter_atom_list)
+                random.shuffle(inter_atom_list)
                 self.inter_atoms=inter_atom_list
             else:
                 self.inter_atoms = inter_atom_list
@@ -414,7 +425,7 @@ class Config:
             elif len(atom_list)<len(self.lat_positions):
                 atom_list.append(Atom(element_types[-1],'LAT_'+element_types[-1].e+str(len(self.lat_positions))))
             if randm==True:
-                #shuffle(atom_list)
+                #random.shuffle(atom_list)
                 self.atoms=atom_list
             else:
                 self.atoms = atom_list
@@ -439,7 +450,7 @@ class Config:
             elif len(inter_atom_list)<len(self.inter_positions):
                 inter_atom_list.append(Atom(inter_element_types[-1],'INT_'+inter_element_types[-1].e+str(len(self.inter_positions))))
             if randm==True:
-                shuffle(inter_atom_list)
+                random.shuffle(inter_atom_list)
                 self.inter_atoms=inter_atom_list
             else:
                 self.inter_atoms = inter_atom_list
@@ -554,12 +565,12 @@ N = Element('N')
 N_0 = Atom(N, 0)
 #print(N_0.e)
 
-bcc = Config('wurtzite',3,['Ga','N'], [1,1],['X','O','Si'],[100,2,1.5], 6,6,6, randm=True)
+bcc = Config('zincblende',3,['Ga','N','Si'], [1,1,0.5],['X','O'],[100,2], 3,3,3, randm=True)
 print(len(bcc.lat_positions))
 print(len(bcc.nearest_neighbor[0]))
 #print(bcc.lat_positions)
 #for line in bcc.nearest_neighbor[3]:
 #        print(len(line))
 #print(fcc.nearest_neighbor)
-POSCAR_saveFile ('../test.vasp',bcc, cartesian=True, show_inter=True)
+POSCAR_saveFile ('../test.vasp',bcc, cartesian=True, show_inter=False)
 print("Total --- %s seconds ---" % (time.time() - start_time))

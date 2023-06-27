@@ -12,3 +12,5 @@ print(dist==0)
 print(y[3][dist[3]==0].shape)
 nearest = [y[i][dist[i]==0] for i,r in enumerate(y)]
 #other = np.concatenate(y[i][dist[i]==0])
+for i in range(0,2):
+    print(i)
