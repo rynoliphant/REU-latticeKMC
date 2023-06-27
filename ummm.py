@@ -344,13 +344,10 @@ class Config:
             if len(element_types)>2 and randm==True:
                 atom_list = [Atom(element_types[i],'LAT_'+element_types[i].e+str(position)) for i in range(0,2) 
                             for position in range(round((ratio[i]/sum(ratio[0:2]))*total))]
-                print(round((ratio[0]/sum(ratio[0:2]))*total))
-                print(round((ratio[1]/sum(ratio[0:2]))*total))
                 for inx,rat in enumerate(ratio[2:]):
                     for position in range(round((rat/sum(ratio))*total)):
                         in_num = random.randrange(0,len(atom_list)-1)
-                        print(in_num)
-                        #atom_list[in_num]=Atom(element_types[inx],'LAT_'+element_types[inx].e+str(position))
+                        atom_list[in_num]=Atom(element_types[inx+2],'LAT_'+element_types[inx+2].e+str(position))
             else:
                 atom_list = [Atom(element_types[i],'LAT_'+element_types[i].e+str(position)) for i,r in enumerate(ratio) 
                             for position in range(round((r/sum(ratio))*total))]
@@ -358,11 +355,8 @@ class Config:
                 atom_list.pop(-1)
             elif len(atom_list)<len(self.lat_positions):
                 atom_list.append(Atom(element_types[-1],'LAT_'+element_types[-1].e+str(len(self.lat_positions))))
-            if randm==True:
-                #random.shuffle(atom_list)
-                self.atoms=atom_list
-            else:
-                self.atoms = atom_list
+
+            self.atoms = atom_list
 
             #Interstitial Sites
             self.octa_unit_cell = [[0.5,0.5,0.5],
@@ -418,17 +412,22 @@ class Config:
             #List of Atoms for Lattice Sites
             total = nx*ny*nz*len(self.unit_cell)
             self.total = total
-            atom_list = [Atom(element_types[i],'LAT_'+element_types[i].e+str(position)) for i,r in enumerate(ratio) 
-                         for position in range(round((r/sum(ratio))*total))]
+            if len(element_types)>2 and randm==True:
+                atom_list = [Atom(element_types[i],'LAT_'+element_types[i].e+str(position)) for i in range(0,2) 
+                            for position in range(round((ratio[i]/sum(ratio[0:2]))*total))]
+                for inx,rat in enumerate(ratio[2:]):
+                    for position in range(round((rat/sum(ratio))*total)):
+                        in_num = random.randrange(0,len(atom_list)-1)
+                        atom_list[in_num]=Atom(element_types[inx+2],'LAT_'+element_types[inx+2].e+str(position))
+            else:
+                atom_list = [Atom(element_types[i],'LAT_'+element_types[i].e+str(position)) for i,r in enumerate(ratio) 
+                            for position in range(round((r/sum(ratio))*total))]
             if len(atom_list)>len(self.lat_positions):
                 atom_list.pop(-1)
             elif len(atom_list)<len(self.lat_positions):
                 atom_list.append(Atom(element_types[-1],'LAT_'+element_types[-1].e+str(len(self.lat_positions))))
-            if randm==True:
-                #random.shuffle(atom_list)
-                self.atoms=atom_list
-            else:
-                self.atoms = atom_list
+
+            self.atoms = atom_list
 
             #Interstitial Sites
             self.octa_unit_cell = [[1,0,0.25],
@@ -565,7 +564,7 @@ N = Element('N')
 N_0 = Atom(N, 0)
 #print(N_0.e)
 
-bcc = Config('zincblende',3,['Ga','N','Si'], [1,1,0.5],['X','O'],[100,2], 3,3,3, randm=True)
+bcc = Config('wurtzite',3,['Ga','N','Si'], [1,1,0.1],['X','O'],[100,2], 3,3,3, randm=True)
 print(len(bcc.lat_positions))
 print(len(bcc.nearest_neighbor[0]))
 #print(bcc.lat_positions)
