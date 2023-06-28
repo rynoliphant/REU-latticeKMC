@@ -46,16 +46,28 @@ class Config:
         second_neigh = []
         third_neigh = []
         fourth_neigh = []
+        fifth_neigh = []
+        sixth_neigh = []
+        seventh_neigh = []
+        eighth_neigh = []
         for coor in positions:
             dist = np.linalg.norm(positions-coor,axis=1) #np.array([coor]).T
             first_bool = np.around(dist,5) == round(neighbor_dist[0],5)
             second_bool = np.around(dist,5) == round(neighbor_dist[1],5)
             third_bool = np.around(dist,5) == round(neighbor_dist[2],5)
             fourth_bool = np.around(dist,5) == round(neighbor_dist[3],5)
+            fifth_bool = np.around(dist,5) == round(neighbor_dist[4],5)
+            sixth_bool = np.around(dist,5) == round(neighbor_dist[5],5)
+            seventh_bool = np.around(dist,5) == round(neighbor_dist[6],5)
+            eighth_bool = np.around(dist,5) == round(neighbor_dist[7],5)
             first_neigh.append(positions[first_bool])
             second_neigh.append(positions[second_bool])
             third_neigh.append(positions[third_bool])
             fourth_neigh.append(positions[fourth_bool])
+            fifth_neigh.append(positions[fifth_bool])
+            sixth_neigh.append(positions[sixth_bool])
+            seventh_neigh.append(positions[seventh_bool])
+            eighth_neigh.append(positions[eighth_bool])
         
         #n_neighbor.append(first_neigh)
         #n_neighbor.append(second_neigh)
@@ -75,6 +87,10 @@ class Config:
         n_neighbor.append(second_neigh)
         n_neighbor.append(third_neigh)
         n_neighbor.append(fourth_neigh)
+        n_neighbor.append(fifth_neigh)
+        n_neighbor.append(sixth_neigh)
+        n_neighbor.append(seventh_neigh)
+        n_neighbor.append(eighth_neigh)
 
         print("Nearest Neighbor--- %s seconds ---" % (time.time() - start_time))
         return n_neighbor
@@ -182,8 +198,10 @@ class Config:
             self.all_atoms = self.atoms+self.inter_atoms
 
             #Nearest Neighbors
-            self.nearest_neighbor = self.n_nearest_neighbor(self.lat_positions, [(lattice_a/np.sqrt(2)),lattice_a,(np.sqrt(3/2)*lattice_a),
-                                                                                 (np.sqrt(2)*lattice_a)])#,(sqrt(3)*lattice_a)])
+            self.nearest_neighbor = self.n_nearest_neighbor(self.lat_positions, [(lattice_a*np.sqrt(3)/4),lattice_a*0.5,
+                                                                                 (lattice_a/np.sqrt(2)), np.sqrt(11)*0.25*lattice_a,
+                                                                                 np.sqrt(3)*0.5*lattice_a, lattice_a,
+                                                                                 (np.sqrt(19)*lattice_a/4), np.sqrt(3/2)*lattice_a])
         elif struct=='bcc': #---------------------------------------------------------------------------------------------------
             self.basis_vectors=np.array([[lattice_a,0,0],
                                          [0,lattice_a,0],
@@ -344,13 +362,10 @@ class Config:
             if len(element_types)>2 and randm==True:
                 atom_list = [Atom(element_types[i],'LAT_'+element_types[i].e+str(position)) for i in range(0,2) 
                             for position in range(round((ratio[i]/sum(ratio[0:2]))*total))]
-                print(round((ratio[0]/sum(ratio[0:2]))*total))
-                print(round((ratio[1]/sum(ratio[0:2]))*total))
                 for inx,rat in enumerate(ratio[2:]):
                     for position in range(round((rat/sum(ratio))*total)):
                         in_num = random.randrange(0,len(atom_list)-1)
-                        print(in_num)
-                        #atom_list[in_num]=Atom(element_types[inx],'LAT_'+element_types[inx].e+str(position))
+                        atom_list[in_num]=Atom(element_types[inx+2],'LAT_'+element_types[inx+2].e+str(position))
             else:
                 atom_list = [Atom(element_types[i],'LAT_'+element_types[i].e+str(position)) for i,r in enumerate(ratio) 
                             for position in range(round((r/sum(ratio))*total))]
@@ -358,11 +373,8 @@ class Config:
                 atom_list.pop(-1)
             elif len(atom_list)<len(self.lat_positions):
                 atom_list.append(Atom(element_types[-1],'LAT_'+element_types[-1].e+str(len(self.lat_positions))))
-            if randm==True:
-                #random.shuffle(atom_list)
-                self.atoms=atom_list
-            else:
-                self.atoms = atom_list
+
+            self.atoms = atom_list
 
             #Interstitial Sites
             self.octa_unit_cell = [[0.5,0.5,0.5],
@@ -398,8 +410,10 @@ class Config:
             self.all_atoms = self.atoms+self.inter_atoms
 
             #Nearest Neighbors
-            self.nearest_neighbor = self.n_nearest_neighbor(self.lat_positions, [(lattice_a*np.sqrt(3)/4),(lattice_a/np.sqrt(2)),
-                                                                                 lattice_a,(np.sqrt(19)*lattice_a/4)])
+            self.nearest_neighbor = self.n_nearest_neighbor(self.all_positions, [(lattice_a*np.sqrt(3)/4),lattice_a*0.5,
+                                                                                 (lattice_a/np.sqrt(2)), np.sqrt(11)*0.25*lattice_a,
+                                                                                 np.sqrt(3)*0.5*lattice_a, lattice_a,
+                                                                                 (np.sqrt(19)*lattice_a/4), np.sqrt(3/2)*lattice_a])
         elif struct=='wurtzite': #----------------------------------------------------------------------------------------------
             self.basis_vectors=np.array([[lattice_a, 0, 0],
                                          [lattice_a*-0.5, lattice_a*0.866025, 0],
@@ -418,17 +432,22 @@ class Config:
             #List of Atoms for Lattice Sites
             total = nx*ny*nz*len(self.unit_cell)
             self.total = total
-            atom_list = [Atom(element_types[i],'LAT_'+element_types[i].e+str(position)) for i,r in enumerate(ratio) 
-                         for position in range(round((r/sum(ratio))*total))]
+            if len(element_types)>2 and randm==True:
+                atom_list = [Atom(element_types[i],'LAT_'+element_types[i].e+str(position)) for i in range(0,2) 
+                            for position in range(round((ratio[i]/sum(ratio[0:2]))*total))]
+                for inx,rat in enumerate(ratio[2:]):
+                    for position in range(round((rat/sum(ratio))*total)):
+                        in_num = random.randrange(0,len(atom_list)-1)
+                        atom_list[in_num]=Atom(element_types[inx+2],'LAT_'+element_types[inx+2].e+str(position))
+            else:
+                atom_list = [Atom(element_types[i],'LAT_'+element_types[i].e+str(position)) for i,r in enumerate(ratio) 
+                            for position in range(round((r/sum(ratio))*total))]
             if len(atom_list)>len(self.lat_positions):
                 atom_list.pop(-1)
             elif len(atom_list)<len(self.lat_positions):
                 atom_list.append(Atom(element_types[-1],'LAT_'+element_types[-1].e+str(len(self.lat_positions))))
-            if randm==True:
-                #random.shuffle(atom_list)
-                self.atoms=atom_list
-            else:
-                self.atoms = atom_list
+
+            self.atoms = atom_list
 
             #Interstitial Sites
             self.octa_unit_cell = [[1,0,0.25],
@@ -554,8 +573,40 @@ def Config_saveFile (output_file,lattice:Config, show_inter=False): #does not qu
             f.write(f'{line[0]} {line[1]} {line[2]}\n')
             count+=1
 
-def kmc_main():
-    hello = 5
+def All_Events(crys:Config):
+    Possible_Events = []
+    for indx, position in enumerate(crys.all_positions):
+        if crys.all_atoms[indx].e != 'X':
+            for final_one in crys.nearest_neighbor[0][indx]:
+                atom_index_one = np.where(crys.all_positions==final_one)[0][0]
+                #print(atom_index)
+                #print(crys.all_atoms[atom_index].e)
+                if crys.all_atoms[atom_index_one].e == 'X':
+                    print('hello')
+                    Possible_Events.append([position, final_one])
+            for final_two in crys.nearest_neighbor[1][indx]:
+                atom_index_two = np.where(crys.all_positions==final_two)[0][0]
+                print(crys.all_atoms[atom_index_two].e)
+                if crys.all_atoms[atom_index_two].e == 'X':
+                    Possible_Events.append([position, final_two])
+    return Possible_Events
+
+def kMC_Main (crys:Config):
+    possible_events=All_Events(crys)
+    #print(possible_events)
+    random_num = random.randrange(0,100)/100
+
+    #will defiantely change later to choose an event more in align with its probability of happening
+    event_occurs = random.randrange(0,len(possible_events)-1)
+    initial_index = np.where(crys.all_positions==possible_events[event_occurs][0])[0][0]
+    initial = crys.all_atoms[initial_index]
+    final_index = np.where(crys.all_positions==possible_events[event_occurs][1])[0][0]
+    final = crys.all_atoms[final_index]
+
+    crys.all_atoms[initial_index] = final
+    crys.all_atoms[final_index] = initial
+
+    return crys
 
 start_time = time.time()
 N = Element('N')
@@ -565,12 +616,16 @@ N = Element('N')
 N_0 = Atom(N, 0)
 #print(N_0.e)
 
-bcc = Config('zincblende',3,['Ga','N','Si'], [1,1,0.5],['X','O'],[100,2], 3,3,3, randm=True)
-print(len(bcc.lat_positions))
+bcc = Config('zincblende',3,['Ga','N'], [1,1],['X','O'],[100,2], 3,3,3, randm=True)
+print(len(bcc.all_positions))
 print(len(bcc.nearest_neighbor[0]))
 #print(bcc.lat_positions)
-#for line in bcc.nearest_neighbor[3]:
-#        print(len(line))
+#for line in bcc.nearest_neighbor[7]:
+        #print(len(line))
 #print(fcc.nearest_neighbor)
-POSCAR_saveFile ('../test.vasp',bcc, cartesian=True, show_inter=False)
+POSCAR_saveFile ('../test.vasp',bcc, cartesian=True, show_inter=True)
+crys = kMC_Main(bcc)
+for iteration in range(50):
+    crys = kMC_Main(crys)
+POSCAR_saveFile ('../final_test.vasp',crys, cartesian=True, show_inter=True)
 print("Total --- %s seconds ---" % (time.time() - start_time))
