@@ -198,7 +198,7 @@ class Config:
             self.all_atoms = self.atoms+self.inter_atoms
 
             #Nearest Neighbors
-            self.nearest_neighbor = self.n_nearest_neighbor(self.lat_positions, [(lattice_a*np.sqrt(3)/4),lattice_a*0.5,
+            self.nearest_neighbor = self.n_nearest_neighbor(self.all_positions, [(lattice_a*np.sqrt(3)/4),lattice_a*0.5,
                                                                                  (lattice_a/np.sqrt(2)), np.sqrt(11)*0.25*lattice_a,
                                                                                  np.sqrt(3)*0.5*lattice_a, lattice_a,
                                                                                  (np.sqrt(19)*lattice_a/4), np.sqrt(3/2)*lattice_a])
@@ -335,8 +335,10 @@ class Config:
             self.all_atoms = self.atoms+self.inter_atoms
 
             #Nearest Neighbors
-            self.nearest_neighbor = self.n_nearest_neighbor(self.lat_positions, [lattice_a,(np.sqrt(2)*lattice_a),
-                                                                                 np.sqrt(8/3)*lattice_a,(np.sqrt(3)*lattice_a)])
+            self.nearest_neighbor = self.n_nearest_neighbor(self.all_positions, [np.sqrt(3/8)*lattice_a, lattice_a/np.sqrt(2),
+                                                                                 lattice_a, (5/(2*np.sqrt(6)))*lattice_a,
+                                                                                 np.sqrt(11/8)*lattice_a, np.sqrt(3/2)*lattice_a,
+                                                                                 np.sqrt(11/6)*lattice_a,np.sqrt(2)*lattice_a])
         elif struct=='zincblende': #--------------------------------------------------------------------------------------------
             self.basis_vectors=np.array([[lattice_a,0,0],
                                          [0,lattice_a,0],
@@ -480,8 +482,10 @@ class Config:
             self.all_atoms = self.atoms+self.inter_atoms
 
             #Nearest Neighbors
-            self.nearest_neighbor = self.n_nearest_neighbor(self.lat_positions, [np.sqrt(3/8)*lattice_a,lattice_a,
-                                                                                 (5/(2*np.sqrt(6)))*lattice_a,np.sqrt(11/8)*lattice_a])
+            self.nearest_neighbor = self.n_nearest_neighbor(self.all_positions, [np.sqrt(3/8)*lattice_a, lattice_a/np.sqrt(2),
+                                                                                 lattice_a, (5/(2*np.sqrt(6)))*lattice_a,
+                                                                                 np.sqrt(11/8)*lattice_a, np.sqrt(3/2)*lattice_a,
+                                                                                 np.sqrt(11/6)*lattice_a,np.sqrt(2)*lattice_a])
                                                                                  #np.sqrt(2)*lattice_a,np.sqrt(8/3)*lattice_a])
         else: #-----------------------------------------------------------------------------------------------------------------
             print('ERROR:',struct,"is not an available structure:",structures)
@@ -497,28 +501,28 @@ def POSCAR_saveFile (output_file,lattice:Config, cartesian=False, show_inter=Fal
         f.write(f'{lattice.basis_vectors[2][0]*lattice.nz} {lattice.basis_vectors[2][1]*lattice.nz} {lattice.basis_vectors[2][2]*lattice.nz}\n')
         if cartesian==False:
             order=[]
-            for element in lattice.atom_types:
-                f.write(f'{element} ')
-                ele_bool = [obj.e==element for obj in lattice.atoms]
-                order=order+list(lattice.frac_lat_positions[ele_bool])
-            inter_order=[]
             if show_inter==True:
-                for elemnt in lattice.inter_atom_types:
+                for elemnt in lattice.atom_types+lattice.inter_atom_types:
                     f.write(f'{elemnt} ')
-                    inter_bool = [objt.e==elemnt for objt in lattice.inter_atoms]
-                    inter_order=inter_order+list(lattice.frac_inter_positions[inter_bool])
+                    inter_bool = [objt.e==elemnt for objt in lattice.all_atoms]
+                    order=order+list(lattice.all_frac_positions[inter_bool])
+            else:
+                for element in lattice.atom_types+lattice.inter_atom_types:
+                    f.write(f'{element} ')
+                    ele_bool = [obj.e==element for obj in lattice.atoms]
+                    order=order+list(lattice.frac_lat_positions[ele_bool])
         else:
             order=[]
-            for element in lattice.atom_types:
-                f.write(f'{element} ')
-                ele_bool = [obj.e==element for obj in lattice.atoms]
-                order=order+list(lattice.lat_positions[ele_bool])
-            inter_order=[]
             if show_inter==True:
-                for elemnt in lattice.inter_atom_types:
+                for elemnt in lattice.atom_types+lattice.inter_atom_types:
                     f.write(f'{elemnt} ')
-                    inter_bool = [objt.e==elemnt for objt in lattice.inter_atoms]
-                    inter_order=inter_order+list(lattice.inter_positions[inter_bool])
+                    inter_bool = [objt.e==elemnt for objt in lattice.all_atoms]
+                    order=order+list(lattice.all_positions[inter_bool])
+            else:
+                for element in lattice.atom_types+lattice.inter_atom_types:
+                    f.write(f'{element} ')
+                    ele_bool = [obj.e==element for obj in lattice.atoms]
+                    order=order+list(lattice.lat_positions[ele_bool])
         f.write(f'\n')
         ratio = (np.array(lattice.ratio)/(sum(lattice.ratio)))*(lattice.total) # Each unit cell have two atoms in BCC.
         for value in ratio:
@@ -532,14 +536,10 @@ def POSCAR_saveFile (output_file,lattice:Config, cartesian=False, show_inter=Fal
             f.write('Direct\n')
             for line in order:
                 f.write(f'{line[0]} {line[1]} {line[2]}\n')
-            for inline in inter_order:
-                f.write(f'{inline[0]} {inline[1]} {inline[2]}\n') 
         else:
             f.write('Cartesian\n')
             for line in order:
                 f.write(f'{line[0]} {line[1]} {line[2]}\n')
-            for inline in inter_order:
-                f.write(f'{inline[0]} {inline[1]} {inline[2]}\n')
         print("POSCAR Save File --- %s seconds ---" % (time.time() - start_time))
         
 def Config_saveFile (output_file,lattice:Config, show_inter=False): #does not quite work... Make sure to fix
@@ -578,33 +578,41 @@ def All_Events(crys:Config):
     for indx, position in enumerate(crys.all_positions):
         if crys.all_atoms[indx].e != 'X':
             for final_one in crys.nearest_neighbor[0][indx]:
-                atom_index_one = np.where(crys.all_positions==final_one)[0][0]
-                #print(atom_index)
-                #print(crys.all_atoms[atom_index].e)
+                atom_index_one = np.where((crys.all_positions[:,0]==final_one[0]) & (crys.all_positions[:,1]==final_one[1]) 
+                                          & (crys.all_positions[:,2]==final_one[2]))[0][0]
                 if crys.all_atoms[atom_index_one].e == 'X':
-                    print('hello')
                     Possible_Events.append([position, final_one])
+
             for final_two in crys.nearest_neighbor[1][indx]:
-                atom_index_two = np.where(crys.all_positions==final_two)[0][0]
-                print(crys.all_atoms[atom_index_two].e)
+                atom_index_two = np.where((crys.all_positions[:,0]==final_two[0]) & (crys.all_positions[:,1]==final_two[1]) 
+                                          & (crys.all_positions[:,2]==final_two[2]))[0][0]
                 if crys.all_atoms[atom_index_two].e == 'X':
                     Possible_Events.append([position, final_two])
     return Possible_Events
 
 def kMC_Main (crys:Config):
     possible_events=All_Events(crys)
-    #print(possible_events)
     random_num = random.randrange(0,100)/100
 
     #will defiantely change later to choose an event more in align with its probability of happening
     event_occurs = random.randrange(0,len(possible_events)-1)
-    initial_index = np.where(crys.all_positions==possible_events[event_occurs][0])[0][0]
+    initial_index = np.where((crys.all_positions[:,0]==possible_events[event_occurs][0][0]) 
+                             & (crys.all_positions[:,1]==possible_events[event_occurs][0][1]) 
+                             & (crys.all_positions[:,2]==possible_events[event_occurs][0][2]))[0][0]
     initial = crys.all_atoms[initial_index]
-    final_index = np.where(crys.all_positions==possible_events[event_occurs][1])[0][0]
+
+    final_index = np.where((crys.all_positions[:,0]==possible_events[event_occurs][1][0]) 
+                             & (crys.all_positions[:,1]==possible_events[event_occurs][1][1]) 
+                             & (crys.all_positions[:,2]==possible_events[event_occurs][1][2]))[0][0]
     final = crys.all_atoms[final_index]
 
     crys.all_atoms[initial_index] = final
     crys.all_atoms[final_index] = initial
+
+    crys.atoms = crys.all_atoms[:len(crys.atoms)]
+    crys.inter_atoms = crys.all_atoms[len(crys.atoms):]
+
+    #print(initial==crys.all_atoms[initial_index])
 
     return crys
 
@@ -616,16 +624,19 @@ N = Element('N')
 N_0 = Atom(N, 0)
 #print(N_0.e)
 
-bcc = Config('zincblende',3,['Ga','N'], [1,1],['X','O'],[100,2], 3,3,3, randm=True)
+bcc = Config('fcc',3,['Ga','N','O'], [1,1,0.05],['X','Si'],[100,5], 6,6,6, randm=True)
 print(len(bcc.all_positions))
 print(len(bcc.nearest_neighbor[0]))
 #print(bcc.lat_positions)
-#for line in bcc.nearest_neighbor[7]:
+#for line in bcc.nearest_neighbor[6]:
         #print(len(line))
 #print(fcc.nearest_neighbor)
+
 POSCAR_saveFile ('../test.vasp',bcc, cartesian=True, show_inter=True)
-crys = kMC_Main(bcc)
-for iteration in range(50):
-    crys = kMC_Main(crys)
-POSCAR_saveFile ('../final_test.vasp',crys, cartesian=True, show_inter=True)
+
+for iteration in range(500):
+    kMC_Main(bcc)
+    #print(crys_new.all_atoms==crys.all_atoms)
+    #crys = crys_new
+POSCAR_saveFile ('../final_test.vasp',bcc, cartesian=True, show_inter=True)
 print("Total --- %s seconds ---" % (time.time() - start_time))
