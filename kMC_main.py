@@ -45,7 +45,7 @@ class Config:
         print("Generate Supercell--- %s seconds ---" % (time.time() - start_time))
         return np.array(direct_list)
     
-    def n_nearest_neighbor(self, positions, neighbor_dist:list):
+    def n_nearest_neighbor(self, positions, maxNN_natoms, neighbor_dist:list):
         '''
         Outputs a list of the nearest neighbors for the structure.
         Format of list is: [nth nearest neighbor[n position[corresponding nearest neighbor positions]]]
@@ -54,6 +54,7 @@ class Config:
         ---------------------------
         self:
         positions: (ndarray) All the positions in the structure
+        maxNN_natoms:
         neighbor_dist: (list) The distance corresponding to each nearest neighbor, sorted from smallest to longest
         '''
         start_time = time.time()
@@ -77,8 +78,8 @@ class Config:
             sixth_bool = np.around(dist,5) == round(neighbor_dist[5],5)
             seventh_bool = np.around(dist,5) == round(neighbor_dist[6],5)
             eighth_bool = np.around(dist,5) == round(neighbor_dist[7],5)
-            first_neigh.append(list(positions[first_bool]) + list(-1*np.ones((12-len(positions[first_bool]),3))))
-            second_neigh.append(list(positions[second_bool]) + list(-1*np.ones((12-len(positions[second_bool]),3))))
+            first_neigh.append(list(positions[first_bool]) + list(-1*np.ones((maxNN_natoms-len(positions[first_bool]),3))))
+            second_neigh.append(list(positions[second_bool]) + list(-1*np.ones((maxNN_natoms-len(positions[second_bool]),3))))
             third_neigh.append(list(positions[third_bool]) )#+ list(-1*np.ones((24-len(positions[third_bool]),3))))
             fourth_neigh.append(list(positions[fourth_bool]) )#+ list(-1*np.ones((24-len(positions[fourth_bool]),3))))
             fifth_neigh.append(list(positions[fifth_bool]) )#+ list(-1*np.ones((24-len(positions[fifth_bool]),3))))
@@ -238,23 +239,26 @@ class Config:
             self.all_atoms = self.atoms+self.inter_atoms
 
             #Nearest Neighbors
-            self.nearest_neighbor = self.n_nearest_neighbor(self.all_positions, [(lattice_a*np.sqrt(3)/4),lattice_a*0.5,
+            self.maxNN_natoms = 12
+            self.nearest_neighbor = self.n_nearest_neighbor(self.all_positions,self.maxNN_natoms, [(lattice_a*np.sqrt(3)/4),lattice_a*0.5,
                                                                                  (lattice_a/np.sqrt(2)), np.sqrt(11)*0.25*lattice_a,
                                                                                  np.sqrt(3)*0.5*lattice_a, lattice_a,
                                                                                  (np.sqrt(19)*lattice_a/4), np.sqrt(3/2)*lattice_a])
 
-            self.total_possible_events_first = np.concatenate((np.repeat(self.all_positions,12,axis=0),np.reshape(np.array(self.nearest_neighbor[0]),(len(self.all_positions)*12,3))),axis=1)
-            self.total_possible_events_second = np.concatenate((np.repeat(self.all_positions,12,axis=0),np.reshape(np.array(self.nearest_neighbor[1]),(len(self.all_positions)*12,3))),axis=1)
+            self.total_possible_events_first = np.concatenate((np.repeat(self.all_positions,self.maxNN_natoms,axis=0),
+                                                               np.reshape(np.array(self.nearest_neighbor[0]),(len(self.all_positions)*self.maxNN_natoms,3))),axis=1)
+            self.total_possible_events_second = np.concatenate((np.repeat(self.all_positions,self.maxNN_natoms,axis=0),
+                                                                np.reshape(np.array(self.nearest_neighbor[1]),(len(self.all_positions)*self.maxNN_natoms,3))),axis=1)
 
             #Making string versions of the positions and nearest neighbors
             self.str_all_positions = np.array(['-1,-1,-1']+[",".join(item) for item in 
-                                                            np.tile(self.all_positions,(12,1)).astype(str)])
+                                                            np.tile(self.all_positions,(self.maxNN_natoms,1)).astype(str)])
             self.str_first_nearest_neighbor = np.array([",".join(item) for item in 
-                                                        np.array(self.nearest_neighbor[0]).reshape(len(self.all_positions)*12,3).astype(str)])
+                                                        np.array(self.nearest_neighbor[0]).reshape(len(self.all_positions)*self.maxNN_natoms,3).astype(str)])
             self.str_second_nearest_neighbor = np.array([",".join(item) for item in 
-                                                         np.array(self.nearest_neighbor[1]).reshape(len(self.all_positions)*12,3).astype(str)])
+                                                         np.array(self.nearest_neighbor[1]).reshape(len(self.all_positions)*self.maxNN_natoms,3).astype(str)])
 
-            #Finding the all_positions indices for the nearest neighbors ie self.str_all_positions[self.first_indices+1]==self.str_first_nearest_neighbor
+            #finding the all_positions indices for the nearest neighbors ie self.all_positions[self.first_indices]==self.str_first_nearest_neighbor
             sorter = self.str_all_positions.argsort(kind='mergesort')
             self.first_indices = np.array(sorter[np.searchsorted(self.str_all_positions, self.str_first_nearest_neighbor,sorter=sorter)]-1)
             self.second_indices = np.array(sorter[np.searchsorted(self.str_all_positions, self.str_second_nearest_neighbor,sorter=sorter)]-1)
@@ -275,9 +279,9 @@ class Config:
             self.total = total
             atom_list = [Atom(element_types[i],'LAT_'+element_types[i].e+str(position)) for i,r in enumerate(ratio) 
                          for position in range(round((r/sum(ratio))*total))]
-            for ii,ia in enumerate(inter_atom_list):
-                if ia.e == 'X':
-                    inter_atom_list[ii] = 'X'
+            for i,a in enumerate(atom_list):
+                if a.e == 'X':
+                    atom_list[i] = 'X'
             if len(atom_list)>len(self.lat_positions):
                 atom_list.pop(-1)
             elif len(atom_list)<len(self.lat_positions):
@@ -337,19 +341,24 @@ class Config:
             self.all_atoms = self.atoms+self.inter_atoms
 
             #Nearest Neighbors  (Update Nearest Neighbors to include interstitial sites)
-            self.nearest_neighbor = self.n_nearest_neighbor(self.lat_positions, [(np.sqrt(3)*lattice_a*0.5),lattice_a,
+            self.maxNN_natoms = 24
+            self.nearest_neighbor = self.n_nearest_neighbor(self.all_positions, self.maxNN_natoms, [0.5*lattice_a, np.sqrt(5)*0.25*lattice_a,
+                                                                                 np.sqrt(2)*0.5*lattice_a,(np.sqrt(3)*lattice_a*0.5),
+                                                                                 lattice_a, np.sqrt(13)*0.25*lattice_a,
                                                                                  (np.sqrt(2)*lattice_a),(np.sqrt(3)*lattice_a)])
             
-            self.total_possible_events_first = np.concatenate((np.repeat(self.all_positions,12,axis=0),np.reshape(np.array(self.nearest_neighbor[0]),(len(self.all_positions)*12,3))),axis=1)
-            self.total_possible_events_second = np.concatenate((np.repeat(self.all_positions,12,axis=0),np.reshape(np.array(self.nearest_neighbor[1]),(len(self.all_positions)*12,3))),axis=1)
+            self.total_possible_events_first = np.concatenate((np.repeat(self.all_positions,self.maxNN_natoms,axis=0),
+                                                               np.reshape(np.array(self.nearest_neighbor[0]),(len(self.all_positions)*self.maxNN_natoms,3))),axis=1)
+            self.total_possible_events_second = np.concatenate((np.repeat(self.all_positions,self.maxNN_natoms,axis=0),
+                                                                np.reshape(np.array(self.nearest_neighbor[1]),(len(self.all_positions)*self.maxNN_natoms,3))),axis=1)
 
             #Making string versions of the positions and nearest neighbors
             self.str_all_positions = np.array(['-1,-1,-1']+[",".join(item) for item in 
-                                                            np.tile(self.all_positions,(12,1)).astype(str)])
+                                                            np.tile(self.all_positions,(self.maxNN_natoms,1)).astype(str)])
             self.str_first_nearest_neighbor = np.array([",".join(item) for item in 
-                                                        np.array(self.nearest_neighbor[0]).reshape(len(self.all_positions)*12,3).astype(str)])
+                                                        np.array(self.nearest_neighbor[0]).reshape(len(self.all_positions)*self.maxNN_natoms,3).astype(str)])
             self.str_second_nearest_neighbor = np.array([",".join(item) for item in 
-                                                         np.array(self.nearest_neighbor[1]).reshape(len(self.all_positions)*12,3).astype(str)])
+                                                         np.array(self.nearest_neighbor[1]).reshape(len(self.all_positions)*self.maxNN_natoms,3).astype(str)])
 
             #finding the all_positions indices for the nearest neighbors ie self.all_positions[self.first_indices]==self.str_first_nearest_neighbor
             sorter = self.str_all_positions.argsort(kind='mergesort')
@@ -421,21 +430,24 @@ class Config:
             self.all_atoms = self.atoms+self.inter_atoms
 
             #Nearest Neighbors
-            self.nearest_neighbor = self.n_nearest_neighbor(self.all_positions, [np.sqrt(3/8)*lattice_a, lattice_a/np.sqrt(2),
+            self.maxNN_natoms = 12
+            self.nearest_neighbor = self.n_nearest_neighbor(self.all_positions,self.maxNN_natoms, [np.sqrt(3/8)*lattice_a, lattice_a/np.sqrt(2),
                                                                                  lattice_a, (5/(2*np.sqrt(6)))*lattice_a,
                                                                                  np.sqrt(11/8)*lattice_a, np.sqrt(3/2)*lattice_a,
                                                                                  np.sqrt(11/6)*lattice_a,np.sqrt(2)*lattice_a])
 
-            self.total_possible_events_first = np.concatenate((np.repeat(self.all_positions,12,axis=0),np.reshape(np.array(self.nearest_neighbor[0]),(len(self.all_positions)*12,3))),axis=1)
-            self.total_possible_events_second = np.concatenate((np.repeat(self.all_positions,12,axis=0),np.reshape(np.array(self.nearest_neighbor[1]),(len(self.all_positions)*12,3))),axis=1)
+            self.total_possible_events_first = np.concatenate((np.repeat(self.all_positions,self.maxNN_natoms,axis=0),
+                                                               np.reshape(np.array(self.nearest_neighbor[0]),(len(self.all_positions)*self.maxNN_natoms,3))),axis=1)
+            self.total_possible_events_second = np.concatenate((np.repeat(self.all_positions,self.maxNN_natoms,axis=0),
+                                                                np.reshape(np.array(self.nearest_neighbor[1]),(len(self.all_positions)*self.maxNN_natoms,3))),axis=1)
 
             #Making string versions of the positions and nearest neighbors
             self.str_all_positions = np.array(['-1,-1,-1']+[",".join(item) for item in 
-                                                            np.tile(self.all_positions,(12,1)).astype(str)])
+                                                            np.tile(self.all_positions,(self.maxNN_natoms,1)).astype(str)])
             self.str_first_nearest_neighbor = np.array([",".join(item) for item in 
-                                                        np.array(self.nearest_neighbor[0]).reshape(len(self.all_positions)*12,3).astype(str)])
+                                                        np.array(self.nearest_neighbor[0]).reshape(len(self.all_positions)*self.maxNN_natoms,3).astype(str)])
             self.str_second_nearest_neighbor = np.array([",".join(item) for item in 
-                                                         np.array(self.nearest_neighbor[1]).reshape(len(self.all_positions)*12,3).astype(str)])
+                                                         np.array(self.nearest_neighbor[1]).reshape(len(self.all_positions)*self.maxNN_natoms,3).astype(str)])
 
             #finding the all_positions indices for the nearest neighbors ie self.all_positions[self.first_indices]==self.str_first_nearest_neighbor
             sorter = self.str_all_positions.argsort(kind='mergesort')
@@ -521,21 +533,24 @@ class Config:
             self.all_atoms = self.atoms+self.inter_atoms
 
             #Nearest Neighbors
-            self.nearest_neighbor = self.n_nearest_neighbor(self.all_positions, [(lattice_a*np.sqrt(3)/4),lattice_a*0.5,
+            self.maxNN_natoms=12
+            self.nearest_neighbor = self.n_nearest_neighbor(self.all_positions,self.maxNN_natoms, [(lattice_a*np.sqrt(3)/4),lattice_a*0.5,
                                                                                  (lattice_a/np.sqrt(2)), np.sqrt(11)*0.25*lattice_a,
                                                                                  np.sqrt(3)*0.5*lattice_a, lattice_a,
                                                                                  (np.sqrt(19)*lattice_a/4), np.sqrt(3/2)*lattice_a])
             
-            self.total_possible_events_first = np.concatenate((np.repeat(self.all_positions,12,axis=0),np.reshape(np.array(self.nearest_neighbor[0]),(len(self.all_positions)*12,3))),axis=1)
-            self.total_possible_events_second = np.concatenate((np.repeat(self.all_positions,12,axis=0),np.reshape(np.array(self.nearest_neighbor[1]),(len(self.all_positions)*12,3))),axis=1)
+            self.total_possible_events_first = np.concatenate((np.repeat(self.all_positions,self.maxNN_natoms,axis=0),
+                                                               np.reshape(np.array(self.nearest_neighbor[0]),(len(self.all_positions)*self.maxNN_natoms,3))),axis=1)
+            self.total_possible_events_second = np.concatenate((np.repeat(self.all_positions,self.maxNN_natoms,axis=0),
+                                                                np.reshape(np.array(self.nearest_neighbor[1]),(len(self.all_positions)*self.maxNN_natoms,3))),axis=1)
 
             #Making string versions of the positions and nearest neighbors
             self.str_all_positions = np.array(['-1,-1,-1']+[",".join(item) for item in 
-                                                            np.tile(self.all_positions,(12,1)).astype(str)])
+                                                            np.tile(self.all_positions,(self.maxNN_natoms,1)).astype(str)])
             self.str_first_nearest_neighbor = np.array([",".join(item) for item in 
-                                                        np.array(self.nearest_neighbor[0]).reshape(len(self.all_positions)*12,3).astype(str)])
+                                                        np.array(self.nearest_neighbor[0]).reshape(len(self.all_positions)*self.maxNN_natoms,3).astype(str)])
             self.str_second_nearest_neighbor = np.array([",".join(item) for item in 
-                                                         np.array(self.nearest_neighbor[1]).reshape(len(self.all_positions)*12,3).astype(str)])
+                                                         np.array(self.nearest_neighbor[1]).reshape(len(self.all_positions)*self.maxNN_natoms,3).astype(str)])
 
             #finding the all_positions indices for the nearest neighbors ie self.all_positions[self.first_indices]==self.str_first_nearest_neighbor
             sorter = self.str_all_positions.argsort(kind='mergesort')
@@ -614,27 +629,30 @@ class Config:
             self.all_atoms = self.atoms+self.inter_atoms
 
             #Nearest Neighbors
-            self.nearest_neighbor = self.n_nearest_neighbor(self.all_positions, [np.sqrt(3/8)*lattice_a, lattice_a/np.sqrt(2),
+            self.maxNN_natoms=12
+            self.nearest_neighbor = self.n_nearest_neighbor(self.all_positions,self.maxNN_natoms, [np.sqrt(3/8)*lattice_a, lattice_a/np.sqrt(2),
                                                                                  lattice_a, (5/(2*np.sqrt(6)))*lattice_a,
                                                                                  np.sqrt(11/8)*lattice_a, np.sqrt(3/2)*lattice_a,
                                                                                  np.sqrt(11/6)*lattice_a,np.sqrt(2)*lattice_a])
                                                                                  #np.sqrt(2)*lattice_a,np.sqrt(8/3)*lattice_a])
 
-            self.total_possible_events_first = np.concatenate((np.repeat(self.all_positions,12,axis=0),np.reshape(np.array(self.nearest_neighbor[0]),(len(self.all_positions)*12,3))),axis=1)
-            self.total_possible_events_second = np.concatenate((np.repeat(self.all_positions,12,axis=0),np.reshape(np.array(self.nearest_neighbor[1]),(len(self.all_positions)*12,3))),axis=1)
+            self.total_possible_events_first = np.concatenate((np.repeat(self.all_positions,self.maxNN_natoms,axis=0),
+                                                               np.reshape(np.array(self.nearest_neighbor[0]),(len(self.all_positions)*self.maxNN_natoms,3))),axis=1)
+            self.total_possible_events_second = np.concatenate((np.repeat(self.all_positions,self.maxNN_natoms,axis=0),
+                                                                np.reshape(np.array(self.nearest_neighbor[1]),(len(self.all_positions)*self.maxNN_natoms,3))),axis=1)
 
             #Making string versions of the positions and nearest neighbors
             self.str_all_positions = np.array(['-1,-1,-1']+[",".join(item) for item in 
-                                                            np.tile(self.all_positions,(12,1)).astype(str)])
+                                                            np.tile(self.all_positions,(self.maxNN_natoms,1)).astype(str)])
             self.str_first_nearest_neighbor = np.array([",".join(item) for item in 
-                                                        np.array(self.nearest_neighbor[0]).reshape(len(self.all_positions)*12,3).astype(str)])
+                                                        np.array(self.nearest_neighbor[0]).reshape(len(self.all_positions)*self.maxNN_natoms,3).astype(str)])
             self.str_second_nearest_neighbor = np.array([",".join(item) for item in 
-                                                         np.array(self.nearest_neighbor[1]).reshape(len(self.all_positions)*12,3).astype(str)])
+                                                         np.array(self.nearest_neighbor[1]).reshape(len(self.all_positions)*self.maxNN_natoms,3).astype(str)])
 
             #finding the all_positions indices for the nearest neighbors ie self.all_positions[self.first_indices]==self.str_first_nearest_neighbor
-            sorter = self.str_all_positions.argsort(kind='stable')
-            self.first_indices = np.array(sorter[np.searchsorted(self.str_all_positions, self.str_first_nearest_neighbor,side='left',sorter=sorter)]-1)
-            self.second_indices = np.array(sorter[np.searchsorted(self.str_all_positions, self.str_second_nearest_neighbor,side='left',sorter=sorter)]-1)
+            sorter = self.str_all_positions.argsort(kind='mergesort')
+            self.first_indices = np.array(sorter[np.searchsorted(self.str_all_positions, self.str_first_nearest_neighbor,sorter=sorter)]-1)
+            self.second_indices = np.array(sorter[np.searchsorted(self.str_all_positions, self.str_second_nearest_neighbor,sorter=sorter)]-1)
 
         else: #-----------------------------------------------------------------------------------------------------------------
             print('ERROR:',struct,"is not an available structure:",structures)
@@ -793,7 +811,7 @@ def All_Events(crys:Config):
     #            if crys.all_atoms[atom_index_two].e == 'X':
     #                Possible_Events.append([position, final_two])
 
-    repeat_all_atoms = np.repeat(crys.all_atoms,12,axis=0)
+    repeat_all_atoms = np.repeat(crys.all_atoms,crys.maxNN_natoms,axis=0)
     true_atom_bool = np.array(repeat_all_atoms) != 'X' #(n*24)x1 bool of which are true atoms
 
     not_real_pos_first = (crys.total_possible_events_first[:,3]!=-1)*(crys.total_possible_events_first[:,4]!=-1)*(crys.total_possible_events_first[:,5]!=-1)
@@ -850,7 +868,7 @@ N = Element('N')
 N_0 = Atom(N, 0)
 #print(N_0.e)
 
-bcc = Config('fcc',3,['Ga','N'], [1,1],['X','Si'],[100,5], 6,6,6, randm=True)
+bcc = Config('wurtzite',3,['Ga','N'], [1,1],['X','Si'],[100,1], 3,3,3, randm=True)
 print(len(bcc.all_positions))
 print(len(bcc.nearest_neighbor[0]))
 #print(bcc.lat_positions)
