@@ -28,6 +28,15 @@ class Config:
     structures = ['fcc', 'bcc','hcp','zincblende','wurtzite']
     def generate_supercell(self, unit_cell, nx:int, ny:int, nz:int):
         '''
+        Takes the unit cell and creates a larger structure based on the nx, ny, and nz inputs
+
+        Parameters
+        ---------------------------
+        self:
+        unit_cell: (ndarray) Positions of the unit cell
+        nx: (int) x direction number of repetitions of unit cell
+        ny: (int) y direction number of repetitions of unit cell
+        nz: (int) z direction number of repetitions of unit cell
         '''
         start_time = time.time()
         direct_list = [[((i)+site[0])/nx, ((j)+site[1])/ny, ((k)+site[2])/nz] for k in range(nz) 
@@ -38,6 +47,14 @@ class Config:
     
     def n_nearest_neighbor(self, positions, neighbor_dist:list):
         '''
+        Outputs a list of the nearest neighbors for the structure.
+        Format of list is: [nth nearest neighbor[n position[corresponding nearest neighbor positions]]]
+
+        Parameters
+        ---------------------------
+        self:
+        positions: (ndarray) All the positions in the structure
+        neighbor_dist: (list) The distance corresponding to each nearest neighbor, sorted from smallest to longest
         '''
         start_time = time.time()
 
@@ -95,7 +112,24 @@ class Config:
         print("Nearest Neighbor--- %s seconds ---" % (time.time() - start_time))
         return np.array(n_neighbor)
 
-    def cartesian_coor(self, positions, a,b,c, alpha, beta, gamma,nx,ny,nz):
+    def cartesian_coor(self, positions, a,b,c, alpha, beta, gamma,nx:int,ny:int,nz:int):
+        '''
+        Converts fractional coordinates into cartesian coordinates
+
+        Parameters
+        ---------------------------
+        self:
+        positions: (ndarray) Positions you wish to convert into cartesian
+        a: (float) length of lattice vector a
+        b: (float) length of lattice vector b
+        c: (float) length of lattice vector c
+        alpha: (float) angle between b and c in degrees
+        beta: (float) angle between a and c in degrees
+        gamma: (float) angle between a and b in degrees
+        nx: (int) x direction number of repetitions of unit cell
+        ny: (int) y direction number of repetitions of unit cell
+        nz: (int) z direction number of repetitions of unit cell
+        '''
         alpha = np.deg2rad(alpha)
         beta = np.deg2rad(beta)
         gamma = np.deg2rad(gamma)
@@ -148,7 +182,6 @@ class Config:
             #List of Atoms for Lattice Sites
             total = nx*ny*nz*len(self.unit_cell)
             self.total = total
-            #self.vacant = Atom(Element('X'),'Vacant')
             atom_list = [Atom(element_types[i],'LAT_'+element_types[i].e+str(position)) for i,r in enumerate(ratio) 
                          for position in range(round((r/sum(ratio))*total))]
             for i,a in enumerate(atom_list):
@@ -222,7 +255,7 @@ class Config:
             self.str_first_nearest_neighbor = np.array([",".join(item) for item in base_first_nn])
             self.str_second_nearest_neighbor = np.array([",".join(item) for item in base_second_nn])
 
-            #finding the all_positions indices for the nearest neighbors ie self.str_all_positions[self.first_indices+1]==self.str_first_nearest_neighbor
+            #Finding the all_positions indices for the nearest neighbors ie self.str_all_positions[self.first_indices+1]==self.str_first_nearest_neighbor
             sorter = self.str_all_positions.argsort(kind='mergesort')
             self.first_indices = np.array(sorter[np.searchsorted(self.str_all_positions, self.str_first_nearest_neighbor,sorter=sorter)]-1)
             self.second_indices = np.array(sorter[np.searchsorted(self.str_all_positions, self.str_second_nearest_neighbor,sorter=sorter)]-1)
@@ -612,6 +645,16 @@ class Config:
             self.basis_vectors=np.array([[0,0,0],[0,0,0],[0,0,0]])
 
 def POSCAR_saveFile (output_file,lattice:Config, cartesian=False, show_inter=False):
+    '''
+    Saves a POSCAR (.vasp) of the structure
+
+    Parameters
+    ---------------------------
+    output_file: (str) Filename and location
+    lattice: (Config) The structure you wish to create a .vasp file for
+    cartesian: (bool) Whether or not the coordinates are cartesian or fractional. Default is cartesian=False
+    show_inter: (bool) Whether or not to show the interstitial sites/atoms. Default is show_inter=False
+    '''
     start_time = time.time()
     with open(output_file, 'w') as f:
         f.write(lattice.struct+' structure\n')
@@ -699,6 +742,9 @@ def POSCAR_saveFile (output_file,lattice:Config, cartesian=False, show_inter=Fal
         print("POSCAR Save File --- %s seconds ---" % (time.time() - start_time))
         
 def Config_saveFile (output_file,lattice:Config, show_inter=False): #does not quite work... Make sure to fix
+    '''
+    
+    '''
     with open(output_file, 'w') as f:
         f.write(f'Number of particles = {lattice.nx*lattice.ny*lattice.nz*len(lattice.unit_cell)}\n')
         f.write('A = 1.0 Angstrom (basic length-scale)\n')
@@ -730,6 +776,13 @@ def Config_saveFile (output_file,lattice:Config, show_inter=False): #does not qu
             count+=1
 
 def All_Events(crys:Config):
+    '''
+    Determines all possible events/pathways
+
+    Parameters
+    ---------------------------
+    crys: (Config) Structure you are determining the events/pathways for
+    '''
     #for indx, position in enumerate(crys.all_positions):
     #    if crys.all_atoms[indx].e != 'X':
     #        for final_one in crys.nearest_neighbor[0][indx]:
@@ -758,6 +811,13 @@ def All_Events(crys:Config):
     return Possible_Events
 
 def kMC_Main (crys:Config):
+    '''
+    Determines an event/pathway and moves the atom accordingly
+
+    Parameter
+    ---------------------------
+    crys: (Config) The structure you are altering
+    '''
     possible_events=All_Events(crys)
     #print(len(possible_events))
     random_num = random.randrange(0,100)/100
