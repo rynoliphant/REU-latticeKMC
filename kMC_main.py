@@ -78,8 +78,8 @@ class Config:
             sixth_bool = np.around(dist,5) == round(neighbor_dist[5],5)
             seventh_bool = np.around(dist,5) == round(neighbor_dist[6],5)
             eighth_bool = np.around(dist,5) == round(neighbor_dist[7],5)
-            first_neigh.append(list(positions[first_bool]) + list(-1*np.ones((maxNN_natoms-len(positions[first_bool]),3))))
-            second_neigh.append(list(positions[second_bool]) + list(-1*np.ones((maxNN_natoms-len(positions[second_bool]),3))))
+            first_neigh.append(list(positions[first_bool]) )#+ list(-1*np.ones((maxNN_natoms-len(positions[first_bool]),3))))
+            second_neigh.append(list(positions[second_bool]) )#+ list(-1*np.ones((maxNN_natoms-len(positions[second_bool]),3))))
             third_neigh.append(list(positions[third_bool]) )#+ list(-1*np.ones((24-len(positions[third_bool]),3))))
             fourth_neigh.append(list(positions[fourth_bool]) )#+ list(-1*np.ones((24-len(positions[fourth_bool]),3))))
             fifth_neigh.append(list(positions[fifth_bool]) )#+ list(-1*np.ones((24-len(positions[fifth_bool]),3))))
@@ -112,7 +112,26 @@ class Config:
 
         print("Nearest Neighbor--- %s seconds ---" % (time.time() - start_time))
         return n_neighbor
+    
+    def Total_possible_events (self, positions, maxNN_natoms:int, neighbor_dist:list):
+        n_neighbor = []
+        first_neigh = []
+        second_neigh = []
+        for coor in positions:
+            dist = np.linalg.norm(positions-coor,axis=1)
+            first_bool = np.around(dist,5) == round(neighbor_dist[0],5)
+            second_bool = np.around(dist,5) == round(neighbor_dist[1],5)
+            first_neigh.append(list(positions[first_bool]) + list(-1*np.ones((maxNN_natoms-len(positions[first_bool]),3))))
+            second_neigh.append(list(positions[second_bool]) + list(-1*np.ones((maxNN_natoms-len(positions[second_bool]),3))))
+        n_neighbor.append(first_neigh)
+        n_neighbor.append(second_neigh)
 
+        total_possible_events_first = np.concatenate((np.repeat(positions,maxNN_natoms,axis=0),
+                                                               np.reshape(np.array(first_neigh),(len(positions)*maxNN_natoms,3))),axis=1)
+        total_possible_events_second = np.concatenate((np.repeat(positions,maxNN_natoms,axis=0),
+                                                                np.reshape(np.array(second_neigh),(len(positions)*maxNN_natoms,3))),axis=1)
+        return n_neighbor,total_possible_events_first,total_possible_events_second
+            
     def cartesian_coor(self, positions, a,b,c, alpha, beta, gamma,nx:int,ny:int,nz:int):
         '''
         Converts fractional coordinates into cartesian coordinates
@@ -154,6 +173,7 @@ class Config:
                   nx=1, ny=1, nz=1, randm=False, structures=structures):
         '''
         '''
+        self.time = 0
         self.struct = struct
         self.nx = nx
         self.ny = ny
@@ -218,11 +238,13 @@ class Config:
             #List of Atoms for Interstitial Sites
             inter_total = nx*ny*nz*len(self.inter_unit_cell)
             self.inter_total = inter_total
-            inter_atom_list = [Atom(inter_element_types[inx],'INT_'+inter_element_types[inx].e+str(pos)) for inx,ra in enumerate(inter_ratio) 
-                         for pos in range(round((ra/sum(inter_ratio))*inter_total))]
-            for ii,ia in enumerate(inter_atom_list):
-                if ia.e == 'X':
-                    inter_atom_list[ii] = 'X'
+            inter_atom_list = ['X' for atom in range(inter_total)]
+            id_count=0
+            for atom_index,amount in enumerate(inter_ratio):
+                for additional in range(amount):
+                    inter_num = random.randrange(0,len(inter_atom_list)-1)
+                    inter_atom_list[inter_num]= Atom(Element(inter_atom_types[atom_index]),ID='INTER'+str(id_count))
+                    id_count+=1
             if len(inter_atom_list)>len(self.inter_positions):
                 inter_atom_list.pop(-1)
             elif len(inter_atom_list)<len(self.inter_positions):
@@ -240,28 +262,28 @@ class Config:
 
             #Nearest Neighbors
             self.maxNN_natoms = 12
-            self.nearest_neighbor = self.n_nearest_neighbor(self.all_positions,self.maxNN_natoms, [(lattice_a*np.sqrt(3)/4),lattice_a*0.5,
-                                                                                 (lattice_a/np.sqrt(2)), np.sqrt(11)*0.25*lattice_a,
-                                                                                 np.sqrt(3)*0.5*lattice_a, lattice_a,
+            self.nearest_neighbor = self.n_nearest_neighbor(self.all_positions,self.maxNN_natoms, [(lattice_a*np.sqrt(3)/4),lattice_a*0.5, #Total nearest neighbors,
+                                                                                 (lattice_a/np.sqrt(2)), np.sqrt(11)*0.25*lattice_a,       #includes both lattice and
+                                                                                 np.sqrt(3)*0.5*lattice_a, lattice_a,                      #interstitial sites.
                                                                                  (np.sqrt(19)*lattice_a/4), np.sqrt(3/2)*lattice_a])
-
-            self.total_possible_events_first = np.concatenate((np.repeat(self.all_positions,self.maxNN_natoms,axis=0),
-                                                               np.reshape(np.array(self.nearest_neighbor[0]),(len(self.all_positions)*self.maxNN_natoms,3))),axis=1)
-            self.total_possible_events_second = np.concatenate((np.repeat(self.all_positions,self.maxNN_natoms,axis=0),
-                                                                np.reshape(np.array(self.nearest_neighbor[1]),(len(self.all_positions)*self.maxNN_natoms,3))),axis=1)
-
+            
+            #Total possible events for this system
+            self.inter_nearest_neighbor,self.total_possible_events_first,self.total_possible_events_second = self.Total_possible_events(self.inter_positions, 
+                                                                                                                                       self.maxNN_natoms,
+                                                                                                                                       [(np.sqrt(3)*0.25*lattice_a),
+                                                                                                                                        (lattice_a/np.sqrt(2))])
             #Making string versions of the positions and nearest neighbors
-            self.str_all_positions = np.array(['-1,-1,-1']+[",".join(item) for item in 
-                                                            np.tile(self.all_positions,(self.maxNN_natoms,1)).astype(str)])
+            self.str_inter_positions = np.array(['-1,-1,-1']+[",".join(item) for item in 
+                                                            np.tile(self.inter_positions,(self.maxNN_natoms,1)).astype(str)])
             self.str_first_nearest_neighbor = np.array([",".join(item) for item in 
-                                                        np.array(self.nearest_neighbor[0]).reshape(len(self.all_positions)*self.maxNN_natoms,3).astype(str)])
+                                                        np.array(self.inter_nearest_neighbor[0]).reshape(len(self.inter_positions)*self.maxNN_natoms,3).astype(str)])
             self.str_second_nearest_neighbor = np.array([",".join(item) for item in 
-                                                         np.array(self.nearest_neighbor[1]).reshape(len(self.all_positions)*self.maxNN_natoms,3).astype(str)])
+                                                         np.array(self.inter_nearest_neighbor[1]).reshape(len(self.inter_positions)*self.maxNN_natoms,3).astype(str)])
 
             #finding the all_positions indices for the nearest neighbors ie self.all_positions[self.first_indices]==self.str_first_nearest_neighbor
-            sorter = self.str_all_positions.argsort(kind='mergesort')
-            self.first_indices = np.array(sorter[np.searchsorted(self.str_all_positions, self.str_first_nearest_neighbor,sorter=sorter)]-1)
-            self.second_indices = np.array(sorter[np.searchsorted(self.str_all_positions, self.str_second_nearest_neighbor,sorter=sorter)]-1)
+            sorter = self.str_inter_positions.argsort(kind='mergesort')
+            self.first_indices = np.array(sorter[np.searchsorted(self.str_inter_positions, self.str_first_nearest_neighbor,sorter=sorter)]-1)
+            self.second_indices = np.array(sorter[np.searchsorted(self.str_inter_positions, self.str_second_nearest_neighbor,sorter=sorter)]-1)
 
         elif struct=='bcc': #---------------------------------------------------------------------------------------------------
             self.basis_vectors=np.array([[lattice_a,0,0],
@@ -512,11 +534,13 @@ class Config:
             #List of Atoms for Interstitial Sites
             inter_total = nx*ny*nz*len(self.inter_unit_cell)
             self.inter_total = inter_total
-            inter_atom_list = [Atom(inter_element_types[inx],'INT_'+inter_element_types[inx].e+str(pos)) for inx,ra in enumerate(inter_ratio) 
-                         for pos in range(round((ra/sum(inter_ratio))*inter_total))]
-            for ii,ia in enumerate(inter_atom_list):
-                if ia.e == 'X':
-                    inter_atom_list[ii] = 'X'
+            inter_atom_list = ['X' for atom in range(inter_total)]
+            id_count=0
+            for atom_index,amount in enumerate(inter_ratio):
+                for additional in range(amount):
+                    inter_num = random.randrange(0,len(inter_atom_list)-1)
+                    inter_atom_list[inter_num]= Atom(Element(inter_atom_types[atom_index]),ID='INTER'+str(id_count))
+                    id_count+=1
             if len(inter_atom_list)>len(self.inter_positions):
                 inter_atom_list.pop(-1)
             elif len(inter_atom_list)<len(self.inter_positions):
@@ -539,23 +563,23 @@ class Config:
                                                                                  np.sqrt(3)*0.5*lattice_a, lattice_a,
                                                                                  (np.sqrt(19)*lattice_a/4), np.sqrt(3/2)*lattice_a])
             
-            self.total_possible_events_first = np.concatenate((np.repeat(self.all_positions,self.maxNN_natoms,axis=0),
-                                                               np.reshape(np.array(self.nearest_neighbor[0]),(len(self.all_positions)*self.maxNN_natoms,3))),axis=1)
-            self.total_possible_events_second = np.concatenate((np.repeat(self.all_positions,self.maxNN_natoms,axis=0),
-                                                                np.reshape(np.array(self.nearest_neighbor[1]),(len(self.all_positions)*self.maxNN_natoms,3))),axis=1)
-
+            #Total possible events for this system
+            self.inter_nearest_neighbor,self.total_possible_events_first,self.total_possible_events_second = self.Total_possible_events(self.inter_positions, 
+                                                                                                                                       self.maxNN_natoms,
+                                                                                                                                       [(np.sqrt(3)*0.25*lattice_a),
+                                                                                                                                        (lattice_a/np.sqrt(2))])
             #Making string versions of the positions and nearest neighbors
-            self.str_all_positions = np.array(['-1,-1,-1']+[",".join(item) for item in 
-                                                            np.tile(self.all_positions,(self.maxNN_natoms,1)).astype(str)])
+            self.str_inter_positions = np.array(['-1,-1,-1']+[",".join(item) for item in 
+                                                            np.tile(self.inter_positions,(self.maxNN_natoms,1)).astype(str)])
             self.str_first_nearest_neighbor = np.array([",".join(item) for item in 
-                                                        np.array(self.nearest_neighbor[0]).reshape(len(self.all_positions)*self.maxNN_natoms,3).astype(str)])
+                                                        np.array(self.inter_nearest_neighbor[0]).reshape(len(self.inter_positions)*self.maxNN_natoms,3).astype(str)])
             self.str_second_nearest_neighbor = np.array([",".join(item) for item in 
-                                                         np.array(self.nearest_neighbor[1]).reshape(len(self.all_positions)*self.maxNN_natoms,3).astype(str)])
+                                                         np.array(self.inter_nearest_neighbor[1]).reshape(len(self.inter_positions)*self.maxNN_natoms,3).astype(str)])
 
             #finding the all_positions indices for the nearest neighbors ie self.all_positions[self.first_indices]==self.str_first_nearest_neighbor
-            sorter = self.str_all_positions.argsort(kind='mergesort')
-            self.first_indices = np.array(sorter[np.searchsorted(self.str_all_positions, self.str_first_nearest_neighbor,sorter=sorter)]-1)
-            self.second_indices = np.array(sorter[np.searchsorted(self.str_all_positions, self.str_second_nearest_neighbor,sorter=sorter)]-1)
+            sorter = self.str_inter_positions.argsort(kind='mergesort')
+            self.first_indices = np.array(sorter[np.searchsorted(self.str_inter_positions, self.str_first_nearest_neighbor,sorter=sorter)]-1)
+            self.second_indices = np.array(sorter[np.searchsorted(self.str_inter_positions, self.str_second_nearest_neighbor,sorter=sorter)]-1)
 
         elif struct=='wurtzite': #----------------------------------------------------------------------------------------------
             self.basis_vectors=np.array([[lattice_a, 0, 0],
@@ -679,19 +703,25 @@ def POSCAR_saveFile (output_file,lattice:Config, cartesian=False, show_inter=Fal
 
         atomTypes,atomIndices,atomInverse,atomCounts = np.unique(np.array(lattice.atom_types+lattice.inter_atom_types), return_index=True, return_inverse=True, return_counts=True)
 
+        order=[]
+        x_in_atomtypes=False
         if cartesian==False:
-            order=[]
             if show_inter==True:
                 for elemnt in atomTypes:
                     f.write(f'{elemnt} ')
                     if elemnt=='X':
                         xinter_bool = np.array(lattice.all_atoms)=='X'
                         order=order+list(lattice.all_frac_positions[xinter_bool])
+                        x_in_atomtypes=True
                     else:
                         notx = np.array(lattice.all_atoms)!= 'X'
                         notx_pos = lattice.all_positions[notx]
                         inter_bool = [objt.e==elemnt for objt in np.array(lattice.all_atoms)[notx]]
                         order=order+list(notx_pos[inter_bool])
+                if x_in_atomtypes==False:
+                    f.write('X')
+                    xinter_bool = np.array(lattice.all_atoms)=='X'
+                    order=order+list(lattice.all_frac_positions[xinter_bool])
             else:
                 for elemnt in lattice.atom_types:
                     f.write(f'{elemnt} ')
@@ -704,18 +734,22 @@ def POSCAR_saveFile (output_file,lattice:Config, cartesian=False, show_inter=Fal
                         inter_bool = [objt.e==elemnt for objt in np.array(lattice.atoms)[notx]]
                         order=order+list(notx_pos[inter_bool])
         else:
-            order=[]
             if show_inter==True:
                 for elemnt in atomTypes:
                     f.write(f'{elemnt} ')
                     if elemnt=='X':
                         xinter_bool = np.array(lattice.all_atoms)=='X'
                         order=order+list(lattice.all_positions[xinter_bool])
+                        x_in_atomtypes=True
                     else:
                         notx = np.array(lattice.all_atoms)!= 'X'
                         notx_pos = lattice.all_positions[notx]
                         inter_bool = [objt.e==elemnt for objt in np.array(lattice.all_atoms)[notx]]
                         order=order+list(notx_pos[inter_bool])
+                if x_in_atomtypes==False:
+                    f.write('X')
+                    xinter_bool = np.array(lattice.all_atoms)=='X'
+                    order=order+list(lattice.all_frac_positions[xinter_bool])
             else:
                 for elemnt in lattice.atom_types:
                     f.write(f'{elemnt} ')
@@ -730,17 +764,18 @@ def POSCAR_saveFile (output_file,lattice:Config, cartesian=False, show_inter=Fal
         f.write(f'\n')
         ratio = list((np.array(lattice.ratio)/(sum(lattice.ratio)))*(lattice.total)) # Each unit cell have two atoms in BCC.
         if show_inter==True:
-            inter_ratio = list((np.array(lattice.inter_ratio)/(sum(lattice.inter_ratio)))*(lattice.inter_total)) # Each unit cell have two atoms in BCC.
-            total_ratio = np.array(ratio+inter_ratio)[atomIndices]
+            total_ratio = np.array(ratio+lattice.inter_ratio)[atomIndices]
             for index,count in enumerate(atomCounts):
                 if count>1:
                     new_rat=0
                     for index2,inverse in enumerate(atomInverse):
                         if inverse==index:
-                            new_rat = new_rat + np.array(ratio+inter_ratio)[index2]
+                            new_rat = new_rat + np.array(ratio+lattice.inter_ratio)[index2]
                     total_ratio[index]=new_rat
             for val in total_ratio:
                 f.write(f'{round(val)} ')
+            if round(sum(total_ratio))<len(lattice.all_atoms):
+                f.write(f'{len(lattice.all_atoms)-round(sum(total_ratio))}')
         else:
             for value in ratio:
                 f.write(f'{round(value)} ')
@@ -811,13 +846,13 @@ def All_Events(crys:Config):
     #            if crys.all_atoms[atom_index_two].e == 'X':
     #                Possible_Events.append([position, final_two])
 
-    repeat_all_atoms = np.repeat(crys.all_atoms,crys.maxNN_natoms,axis=0)
-    true_atom_bool = np.array(repeat_all_atoms) != 'X' #(n*24)x1 bool of which are true atoms
+    repeat_inter_atoms = np.repeat(crys.inter_atoms,crys.maxNN_natoms,axis=0)
+    true_atom_bool = np.array(repeat_inter_atoms) != 'X' #(n*m)x1 bool of which are true atoms
 
     not_real_pos_first = (crys.total_possible_events_first[:,3]!=-1)*(crys.total_possible_events_first[:,4]!=-1)*(crys.total_possible_events_first[:,5]!=-1)
     not_real_pos_second = (crys.total_possible_events_second[:,3]!=-1)*(crys.total_possible_events_second[:,4]!=-1)*(crys.total_possible_events_second[:,5]!=-1)
-    available_position_first = (crys.first_indices != -1)*(np.array(crys.all_atoms)[crys.first_indices]=='X')*not_real_pos_first
-    available_position_second = (crys.second_indices != -1)*(np.array(crys.all_atoms)[crys.second_indices]=='X')*not_real_pos_second
+    available_position_first = (crys.first_indices != -1)*(np.array(crys.inter_atoms)[crys.first_indices]=='X')*not_real_pos_first
+    available_position_second = (crys.second_indices != -1)*(np.array(crys.inter_atoms)[crys.second_indices]=='X')*not_real_pos_second
 
     Possible_Events = (list(crys.total_possible_events_first[true_atom_bool*available_position_first])+
                        list(crys.total_possible_events_second[true_atom_bool*available_position_second]))
@@ -833,7 +868,6 @@ def kMC_Main (crys:Config):
     crys: (Config) The structure you are altering
     '''
     possible_events=All_Events(crys)
-    #print(len(possible_events))
     random_num = random.randrange(0,100)/100
     if possible_events==[]:
         return crys
@@ -856,6 +890,12 @@ def kMC_Main (crys:Config):
     crys.atoms = crys.all_atoms[:len(crys.atoms)]
     crys.inter_atoms = crys.all_atoms[len(crys.atoms):]
 
+    #Update Time
+    rates_of_events = np.ones((len(possible_events))) #will change later to accurately represent rates of events
+    time_random_num = random.randrange(1,100)/100
+    delta_time = -1*(np.log(time_random_num))/(sum(rates_of_events))
+    crys.time = crys.time + delta_time
+
     #print(initial==crys.all_atoms[initial_index])
 
     return crys
@@ -868,7 +908,7 @@ N = Element('N')
 N_0 = Atom(N, 0)
 #print(N_0.e)
 
-bcc = Config('wurtzite',3,['Ga','N'], [1,1],['X','Si'],[100,1], 3,3,3, randm=True)
+bcc = Config('zincblende',3,['Ga','N'], [1,1],['H','Si'],[3,2], 3,3,3, randm=True)
 print(len(bcc.all_positions))
 print(len(bcc.nearest_neighbor[0]))
 #print(bcc.lat_positions)
@@ -886,6 +926,7 @@ for iteration in range(500):
     kMC_Main(bcc)
     #print(crys_new.all_atoms==crys.all_atoms)
     #crys = crys_new
+#print(bcc.time)
 print("Iterations --- %s seconds ---" % (time.time() - iteration_start_time))
 POSCAR_saveFile ('../final_test.vasp',bcc, cartesian=True, show_inter=True)
 print("Total --- %s seconds ---" % (time.time() - start_time))
