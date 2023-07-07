@@ -3,8 +3,8 @@ import random
 import time
 
 class Element:
-    elements = ['X','Ga','N','H','Si','O']
-    mass = [0,69.723,14.0067,1.00784,28.0855,15.999]
+    elements = ['X','Ga','N','H','Si','O', 'Mg']
+    mass = [0,69.723,14.0067,1.00784,28.0855,15.999,24.305]
 
     def __init__(self,elemnt:str,elements=elements,mass=mass):
         self.e = elemnt
@@ -170,7 +170,7 @@ class Config:
         return cartesian
 
     def __init__(self, struct:str, lattice_a:float, atom_types:list, ratio:list, inter_atom_types:list, inter_ratio:list,
-                  nx=1, ny=1, nz=1, randm=False, structures=structures):
+                  nx=1, ny=1, nz=1, randm=False, replace_first_atom=True, structures=structures):
         '''
         '''
         self.time = 0
@@ -505,9 +505,15 @@ class Config:
             if len(element_types)>2 and randm==True:
                 atom_list = [Atom(element_types[i],'LAT_'+element_types[i].e+str(position)) for i in range(0,2) 
                             for position in range(round((ratio[i]/sum(ratio[0:2]))*total))]
+                if replace_first_atom==True:
+                    len_random = [0,len(fcc_lat_positions)-1]
+                    self.ratio[0] = self.ratio[0] - sum(ratio[2:])
+                else:
+                    len_random = [len(fcc_lat_positions),len(atom_list)-1]
+                    self.ratio[1] = self.ratio[1] - sum(ratio[2:])
                 for inx,rat in enumerate(ratio[2:]):
                     for position in range(round((rat/sum(ratio))*total)):
-                        in_num = random.randrange(0,len(atom_list)-1)
+                        in_num = random.randrange(len_random[0],len_random[1])
                         atom_list[in_num]=Atom(element_types[inx+2],'LAT_'+element_types[inx+2].e+str(position))
             else:
                 atom_list = [Atom(element_types[i],'LAT_'+element_types[i].e+str(position)) for i,r in enumerate(ratio) 
@@ -606,9 +612,15 @@ class Config:
             if len(element_types)>2 and randm==True:
                 atom_list = [Atom(element_types[i],'LAT_'+element_types[i].e+str(position)) for i in range(0,2) 
                             for position in range(round((ratio[i]/sum(ratio[0:2]))*total))]
+                if replace_first_atom==True:
+                    len_random = [0,len(hcp_lat_positions)-1]
+                    self.ratio[0] = self.ratio[0] - sum(ratio[2:])
+                else:
+                    len_random = [len(hcp_lat_positions),len(atom_list)-1]
+                    self.ratio[1] = self.ratio[1] - sum(ratio[2:])
                 for inx,rat in enumerate(ratio[2:]):
                     for position in range(round((rat/sum(ratio))*total)):
-                        in_num = random.randrange(0,len(atom_list)-1)
+                        in_num = random.randrange(len_random[0],len_random[1])
                         atom_list[in_num]=Atom(element_types[inx+2],'LAT_'+element_types[inx+2].e+str(position))
             else:
                 atom_list = [Atom(element_types[i],'LAT_'+element_types[i].e+str(position)) for i,r in enumerate(ratio) 
@@ -708,7 +720,7 @@ def POSCAR_saveFile (output_file,lattice:Config, cartesian=False, show_inter=Fal
         f.write(f'{lattice.basis_vectors[2][0]*lattice.nz} {lattice.basis_vectors[2][1]*lattice.nz} {lattice.basis_vectors[2][2]*lattice.nz}\n')
 
         atomTypes,atomIndices,atomInverse,atomCounts = np.unique(np.array(lattice.atom_types+lattice.inter_atom_types), return_index=True, return_inverse=True, return_counts=True)
-
+        poscar_atomNum = []
         order=[]
         x_in_atomtypes=False
         if cartesian==False:
@@ -719,26 +731,31 @@ def POSCAR_saveFile (output_file,lattice:Config, cartesian=False, show_inter=Fal
                         xinter_bool = np.array(lattice.all_atoms)=='X'
                         order=order+list(lattice.all_frac_positions[xinter_bool])
                         x_in_atomtypes=True
+                        poscar_atomNum.append(len(lattice.all_frac_positions[xinter_bool]))
                     else:
                         notx = np.array(lattice.all_atoms)!= 'X'
                         notx_pos = lattice.all_positions[notx]
                         inter_bool = [objt.e==elemnt for objt in np.array(lattice.all_atoms)[notx]]
                         order=order+list(notx_pos[inter_bool])
+                        poscar_atomNum.append(len(notx_pos[inter_bool]))
                 if x_in_atomtypes==False:
                     f.write('X')
                     xinter_bool = np.array(lattice.all_atoms)=='X'
                     order=order+list(lattice.all_frac_positions[xinter_bool])
+                    poscar_atomNum.append(len(lattice.all_frac_positions[xinter_bool]))
             else:
                 for elemnt in lattice.atom_types:
                     f.write(f'{elemnt} ')
                     if elemnt=='X':
                         xinter_bool = np.array(lattice.atoms)=='X'
                         order=order+list(lattice.frac_lat_positions[xinter_bool])
+                        poscar_atomNum.append(len(lattice.frac_lat_positions[xinter_bool]))
                     else:
                         notx = np.array(lattice.atoms)!= 'X'
                         notx_pos = lattice.frac_lat_positions[notx]
                         inter_bool = [objt.e==elemnt for objt in np.array(lattice.atoms)[notx]]
                         order=order+list(notx_pos[inter_bool])
+                        poscar_atomNum.append(len(notx_pos[inter_bool]))
         else:
             if show_inter==True:
                 for elemnt in atomTypes:
@@ -747,45 +764,35 @@ def POSCAR_saveFile (output_file,lattice:Config, cartesian=False, show_inter=Fal
                         xinter_bool = np.array(lattice.all_atoms)=='X'
                         order=order+list(lattice.all_positions[xinter_bool])
                         x_in_atomtypes=True
+                        poscar_atomNum.append(len(lattice.all_positions[xinter_bool]))
                     else:
                         notx = np.array(lattice.all_atoms)!= 'X'
                         notx_pos = lattice.all_positions[notx]
                         inter_bool = [objt.e==elemnt for objt in np.array(lattice.all_atoms)[notx]]
                         order=order+list(notx_pos[inter_bool])
+                        poscar_atomNum.append(len(notx_pos[inter_bool]))
                 if x_in_atomtypes==False:
                     f.write('X')
                     xinter_bool = np.array(lattice.all_atoms)=='X'
                     order=order+list(lattice.all_positions[xinter_bool])
+                    poscar_atomNum.append(len(lattice.all_positions[xinter_bool]))
             else:
                 for elemnt in lattice.atom_types:
                     f.write(f'{elemnt} ')
                     if elemnt=='X':
                         xinter_bool = np.array(lattice.atoms)=='X'
                         order=order+list(lattice.lat_positions[xinter_bool])
+                        poscar_atomNum.append(len(lattice.lat_positions[xinter_bool]))
                     else:
                         notx = np.array(lattice.atoms)!= 'X'
                         notx_pos = lattice.lat_positions[notx]
                         inter_bool = [objt.e==elemnt for objt in np.array(lattice.atoms)[notx]]
                         order=order+list(notx_pos[inter_bool])
-        f.write(f'\n')
-        ratio = list((np.array(lattice.ratio)/(sum(lattice.ratio)))*(lattice.total))
-        if show_inter==True:
-            total_ratio = np.array(ratio+lattice.inter_ratio)[atomIndices]
-            for index,count in enumerate(atomCounts):
-                if count>1:
-                    new_rat=0
-                    for index2,inverse in enumerate(atomInverse):
-                        if inverse==index:
-                            new_rat = new_rat + np.array(ratio+lattice.inter_ratio)[index2]
-                    total_ratio[index]=new_rat
-            for val in total_ratio:
-                f.write(f'{round(val)} ')
-            if round(sum(total_ratio))<len(lattice.all_atoms):
-                f.write(f'{len(lattice.all_atoms)-round(sum(total_ratio))}')
-        else:
-            for value in ratio:
-                f.write(f'{round(value)} ')
-        f.write(f'\n')
+                        poscar_atomNum.append(len(notx_pos[inter_bool]))
+        f.write('\n')
+        for atomNum in poscar_atomNum:
+            f.write(f'{atomNum} ')
+        f.write('\n')
         if cartesian==False:
             f.write('Direct\n')
             for line in order:
@@ -914,7 +921,7 @@ N = Element('N')
 N_0 = Atom(N, 0)
 #print(N_0.e)
 
-bcc = Config('zincblende',3,['Ga','N'], [1,1],['H','Si'],[20,5], 3,3,3, randm=True)
+bcc = Config('zincblende',3,['Ga','N', 'Mg'], [1,1,0.1],['H','Si'],[10,5], 3,3,3, randm=True)
 print(len(bcc.all_positions))
 print(len(bcc.nearest_neighbor[0]))
 #print(bcc.lat_positions)
