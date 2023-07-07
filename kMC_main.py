@@ -45,7 +45,7 @@ class Config:
         print("Generate Supercell--- %s seconds ---" % (time.time() - start_time))
         return np.array(direct_list)
     
-    def n_nearest_neighbor(self, positions, maxNN_natoms, neighbor_dist:list):
+    def n_nearest_neighbor(self, positions, neighbor_dist:list):
         '''
         Outputs a list of the nearest neighbors for the structure.
         Format of list is: [nth nearest neighbor[n position[corresponding nearest neighbor positions]]]
@@ -69,7 +69,7 @@ class Config:
         seventh_neigh = []
         eighth_neigh = []
         for coor in positions:
-            dist = np.linalg.norm(positions-coor,axis=1) #np.array([coor]).T
+            dist = np.linalg.norm(positions-coor,axis=1) 
             first_bool = np.around(dist,5) == round(neighbor_dist[0],5)
             second_bool = np.around(dist,5) == round(neighbor_dist[1],5)
             third_bool = np.around(dist,5) == round(neighbor_dist[2],5)
@@ -78,14 +78,14 @@ class Config:
             sixth_bool = np.around(dist,5) == round(neighbor_dist[5],5)
             seventh_bool = np.around(dist,5) == round(neighbor_dist[6],5)
             eighth_bool = np.around(dist,5) == round(neighbor_dist[7],5)
-            first_neigh.append(list(positions[first_bool]) )#+ list(-1*np.ones((maxNN_natoms-len(positions[first_bool]),3))))
-            second_neigh.append(list(positions[second_bool]) )#+ list(-1*np.ones((maxNN_natoms-len(positions[second_bool]),3))))
-            third_neigh.append(list(positions[third_bool]) )#+ list(-1*np.ones((24-len(positions[third_bool]),3))))
-            fourth_neigh.append(list(positions[fourth_bool]) )#+ list(-1*np.ones((24-len(positions[fourth_bool]),3))))
-            fifth_neigh.append(list(positions[fifth_bool]) )#+ list(-1*np.ones((24-len(positions[fifth_bool]),3))))
-            sixth_neigh.append(list(positions[sixth_bool]) )#+ list(-1*np.ones((24-len(positions[sixth_bool]),3))))
-            seventh_neigh.append(list(positions[seventh_bool]) )#+ list(-1*np.ones((24-len(positions[seventh_bool]),3))))
-            eighth_neigh.append(list(positions[eighth_bool]) )#+ list(-1*np.ones((24-len(positions[eighth_bool]),3))))
+            first_neigh.append(list(positions[first_bool]) )
+            second_neigh.append(list(positions[second_bool]) )
+            third_neigh.append(list(positions[third_bool]) )
+            fourth_neigh.append(list(positions[fourth_bool]) )
+            fifth_neigh.append(list(positions[fifth_bool]) )
+            sixth_neigh.append(list(positions[sixth_bool]) )
+            seventh_neigh.append(list(positions[seventh_bool]) )
+            eighth_neigh.append(list(positions[eighth_bool]) )
         
         #n_neighbor.append(first_neigh)
         #n_neighbor.append(second_neigh)
@@ -114,6 +114,9 @@ class Config:
         return n_neighbor
     
     def Total_possible_events (self, positions, maxNN_natoms:int, neighbor_dist:list):
+        '''
+        
+        '''
         n_neighbor = []
         first_neigh = []
         second_neigh = []
@@ -262,7 +265,7 @@ class Config:
 
             #Nearest Neighbors
             self.maxNN_natoms = 12
-            self.nearest_neighbor = self.n_nearest_neighbor(self.all_positions,self.maxNN_natoms, [(lattice_a*np.sqrt(3)/4),lattice_a*0.5, #Total nearest neighbors,
+            self.nearest_neighbor = self.n_nearest_neighbor(self.all_positions, [(lattice_a*np.sqrt(3)/4),lattice_a*0.5, #Total nearest neighbors,
                                                                                  (lattice_a/np.sqrt(2)), np.sqrt(11)*0.25*lattice_a,       #includes both lattice and
                                                                                  np.sqrt(3)*0.5*lattice_a, lattice_a,                      #interstitial sites.
                                                                                  (np.sqrt(19)*lattice_a/4), np.sqrt(3/2)*lattice_a])
@@ -366,7 +369,7 @@ class Config:
 
             #Nearest Neighbors  (Update Nearest Neighbors to include interstitial sites)
             self.maxNN_natoms = 24
-            self.nearest_neighbor = self.n_nearest_neighbor(self.all_positions, self.maxNN_natoms, [0.5*lattice_a, np.sqrt(5)*0.25*lattice_a,
+            self.nearest_neighbor = self.n_nearest_neighbor(self.all_positions, [0.5*lattice_a, np.sqrt(5)*0.25*lattice_a,
                                                                                  np.sqrt(2)*0.5*lattice_a,(np.sqrt(3)*lattice_a*0.5),
                                                                                  lattice_a, np.sqrt(13)*0.25*lattice_a,
                                                                                  (np.sqrt(2)*lattice_a),(np.sqrt(3)*lattice_a)])
@@ -457,7 +460,7 @@ class Config:
 
             #Nearest Neighbors
             self.maxNN_natoms = 12
-            self.nearest_neighbor = self.n_nearest_neighbor(self.all_positions,self.maxNN_natoms, [np.sqrt(3/8)*lattice_a, lattice_a/np.sqrt(2),
+            self.nearest_neighbor = self.n_nearest_neighbor(self.all_positions, [np.sqrt(3/8)*lattice_a, lattice_a/np.sqrt(2),
                                                                                  lattice_a, (5/(2*np.sqrt(6)))*lattice_a,
                                                                                  np.sqrt(11/8)*lattice_a, np.sqrt(3/2)*lattice_a,
                                                                                  np.sqrt(11/6)*lattice_a,np.sqrt(2)*lattice_a])
@@ -568,7 +571,7 @@ class Config:
 
             #Nearest Neighbors
             self.maxNN_natoms=12
-            self.nearest_neighbor = self.n_nearest_neighbor(self.all_positions,self.maxNN_natoms, [(lattice_a*np.sqrt(3)/4),lattice_a*0.5,
+            self.nearest_neighbor = self.n_nearest_neighbor(self.all_positions, [(lattice_a*np.sqrt(3)/4),lattice_a*0.5,
                                                                                  (lattice_a/np.sqrt(2)), np.sqrt(11)*0.25*lattice_a,
                                                                                  np.sqrt(3)*0.5*lattice_a, lattice_a,
                                                                                  (np.sqrt(19)*lattice_a/4), np.sqrt(3/2)*lattice_a])
@@ -672,7 +675,7 @@ class Config:
 
             #Nearest Neighbors
             self.maxNN_natoms=12
-            self.nearest_neighbor = self.n_nearest_neighbor(self.all_positions,self.maxNN_natoms, [np.sqrt(3/8)*lattice_a, lattice_a/np.sqrt(2),
+            self.nearest_neighbor = self.n_nearest_neighbor(self.all_positions, [np.sqrt(3/8)*lattice_a, lattice_a/np.sqrt(2),
                                                                                  lattice_a, (5/(2*np.sqrt(6)))*lattice_a,
                                                                                  np.sqrt(11/8)*lattice_a, np.sqrt(3/2)*lattice_a,
                                                                                  np.sqrt(11/6)*lattice_a,np.sqrt(2)*lattice_a])
@@ -872,6 +875,10 @@ def All_Events(crys:Config):
             
     return Possible_Events
 
+def rates_of_All_Events (crys:Config):
+    rates_AE = []
+    return rates_AE
+
 def kMC_Main (crys:Config):
     '''
     Determines an event/pathway and moves the atom accordingly
@@ -881,35 +888,33 @@ def kMC_Main (crys:Config):
     crys: (Config) The structure you are altering
     '''
     possible_events=All_Events(crys)
-    random_num = random.randrange(0,100)/100
     if possible_events==[]:
         return crys
+    
+    #Choose an event
+    rates_of_events = np.ones((len(possible_events))) #will change later to accurately represent rates of events
+    W_k = np.cumsum(rates_of_events)
+    random_num = random.randrange(0,100)/100
+    event_occurs = np.where(W_k>= random_num*sum(rates_of_events))[0][0]
 
-    #will defiantely change later to choose an event more in align with its probability of happening
-    event_occurs = random.randrange(0,len(possible_events)-1)
+    #Atom moves
     initial_index = np.where((crys.all_positions[:,0]==possible_events[event_occurs][0]) 
                              & (crys.all_positions[:,1]==possible_events[event_occurs][1]) 
                              & (crys.all_positions[:,2]==possible_events[event_occurs][2]))[0][0]
     initial = crys.all_atoms[initial_index]
-
     final_index = np.where((crys.all_positions[:,0]==possible_events[event_occurs][3]) 
                              & (crys.all_positions[:,1]==possible_events[event_occurs][4]) 
                              & (crys.all_positions[:,2]==possible_events[event_occurs][5]))[0][0]
     final = crys.all_atoms[final_index]
-
     crys.all_atoms[initial_index] = final
     crys.all_atoms[final_index] = initial
-
     crys.atoms = crys.all_atoms[:len(crys.atoms)]
     crys.inter_atoms = crys.all_atoms[len(crys.atoms):]
 
     #Update Time
-    rates_of_events = np.ones((len(possible_events))) #will change later to accurately represent rates of events
     time_random_num = random.randrange(1,100)/100
     delta_time = -1*(np.log(time_random_num))/(sum(rates_of_events))
     crys.time = crys.time + delta_time
-
-    #print(initial==crys.all_atoms[initial_index])
 
     return crys
 
