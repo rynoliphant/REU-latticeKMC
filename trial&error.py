@@ -65,3 +65,7 @@ print(i-1)
 #new_i = (((i_newshape[total_bool][:,2]+1)/3)-1).astype(int)
 
 #print(new_i)
+rofae = [1,2,3,4,5,6,7]
+#what I want to transform it to: [1,3,6,10,15,21,28]
+print(np.cumsum(rofae))
+print(min(np.array(rofae)))
