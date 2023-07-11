@@ -177,6 +177,7 @@ class Config:
         '''
         '''
         self.time = 0
+        self.MSD = 0
         self.struct = struct
         self.nx = nx
         self.ny = ny
@@ -840,6 +841,23 @@ def Config_saveFile (output_file,lattice:Config, show_inter=False): #does not qu
             f.write(f'{line[0]} {line[1]} {line[2]}\n')
             count+=1
 
+def Diffusivity (E_100:float, E_010:float, E_001:float, E_110:float, E_101:float, E_011:float, T:float, eV=True):
+    D_0 = 1 #m^2/s
+    k_B = 8.617333262 * (10**(-5)) #eV/K
+    if eV == False:
+        conversion = 1.602 * (10**(-19)) #Coulombs
+        E_100 = E_100/conversion
+        E_010 = E_010/conversion
+        E_001 = E_001/conversion
+        E_110 = E_110/conversion
+        E_101 = E_101/conversion
+        E_011 = E_011/conversion
+
+    diffusion = np.array([[(D_0*np.exp(-E_100/(k_B*T))), (D_0*np.exp(-E_110/(k_B*T))), (D_0*np.exp(-E_101/(k_B*T)))],
+                          [(D_0*np.exp(-E_110/(k_B*T))), (D_0*np.exp(-E_010/(k_B*T))), (D_0*np.exp(-E_011/(k_B*T)))],
+                          [(D_0*np.exp(-E_101/(k_B*T))), (D_0*np.exp(-E_011/(k_B*T))), (D_0*np.exp(-E_001/(k_B*T)))]])
+    return diffusion
+
 def All_Events(crys:Config):
     '''
     Determines all possible events/pathways
@@ -875,11 +893,17 @@ def All_Events(crys:Config):
             
     return Possible_Events
 
-def rates_of_All_Events (crys:Config):
-    rates_AE = []
+def rates_of_All_Events (crys:Config, possible_events:list,T):
+    #k_B = 1.380649*(10**(-23)) #Joules/Kelvin
+    k_B = 8.617333262 * (10**(-5)) #eV/K
+    attempt_freq = np.ones((len(possible_events),1)) #change later to more accurate
+    energy_barrier = np.ones((len(possible_events),1)) #change
+    energy_initial = np.zeros((len(possible_events),1)) #change
+
+    rates_AE = attempt_freq * np.exp(-1*(energy_barrier-energy_initial)/(k_B*T) )
     return rates_AE
 
-def kMC_Main (crys:Config):
+def kMC_Main (crys:Config, diffusion, temp):
     '''
     Determines an event/pathway and moves the atom accordingly
 
@@ -892,9 +916,9 @@ def kMC_Main (crys:Config):
         return crys
     
     #Choose an event
-    rates_of_events = np.ones((len(possible_events))) #will change later to accurately represent rates of events
+    rates_of_events = rates_of_All_Events(crys, possible_events, temp)
     W_k = np.cumsum(rates_of_events)
-    random_num = random.randrange(0,100)/100
+    random_num = random.randrange(0,1000)/1000
     event_occurs = np.where(W_k>= random_num*sum(rates_of_events))[0][0]
 
     #Atom moves
@@ -912,21 +936,17 @@ def kMC_Main (crys:Config):
     crys.inter_atoms = crys.all_atoms[len(crys.atoms):]
 
     #Update Time
-    time_random_num = random.randrange(1,100)/100
+    time_random_num = random.randrange(1,1000)/1000
     delta_time = -1*(np.log(time_random_num))/(sum(rates_of_events))
     crys.time = crys.time + delta_time
+
+    crys.MSD = 2*3*diffusion*delta_time
 
     return crys
 
 start_time = time.time()
-N = Element('N')
-#print(N.e)
-#print(N.m)
 
-N_0 = Atom(N, 0)
-#print(N_0.e)
-
-bcc = Config('zincblende',3,['Ga','N', 'Mg'], [1,1,0.1],['H','Si'],[10,5], 3,3,3, randm=True)
+bcc = Config('wurtzite',3,['Ga','N', 'Mg'], [1,1,0.1],['H'],[1], 3,3,3, randm=True)
 print(len(bcc.all_positions))
 print(len(bcc.nearest_neighbor[0]))
 #print(bcc.lat_positions)
@@ -940,8 +960,17 @@ print(len(bcc.nearest_neighbor[0]))
 
 POSCAR_saveFile ('../test.vasp',bcc, cartesian=True, show_inter=True)
 iteration_start_time = time.time()
+
+temp = 550
+e100 = 1
+e010 = 1
+e001 = 1
+e110 = 1
+e101 = 1
+e011 = 1
+diffusion = Diffusivity(e100,e010, e001, e110, e101, e011, T=temp)
 for iteration in range(500):
-    kMC_Main(bcc)
+    kMC_Main(bcc, diffusion, temp)
     #print(crys_new.all_atoms==crys.all_atoms)
     #crys = crys_new
 #print(bcc.time)
