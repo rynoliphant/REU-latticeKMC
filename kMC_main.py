@@ -738,7 +738,7 @@ class Config:
             print('ERROR:',struct,"is not an available structure:",structures)
             self.basis_vectors=np.array([[0,0,0],[0,0,0],[0,0,0]])
 
-def POSCAR_saveFile (output_file,lattice:Config, cartesian=False, show_inter=False):
+def POSCAR_saveFile (output_file,lattice:Config, cartesian=False, show_inter=False, show_X=True):
     '''
     Saves a POSCAR (.vasp) of the structure
 
@@ -764,31 +764,37 @@ def POSCAR_saveFile (output_file,lattice:Config, cartesian=False, show_inter=Fal
         if cartesian==False:
             if show_inter==True:
                 for elemnt in atomTypes:
-                    f.write(f'{elemnt} ')
                     if elemnt=='X':
+                        if show_X==False:
+                            continue
+                        f.write(f'{elemnt} ')
                         xinter_bool = np.array(lattice.all_atoms)=='X'
                         order=order+list(lattice.all_frac_positions[xinter_bool])
                         x_in_atomtypes=True
                         poscar_atomNum.append(len(lattice.all_frac_positions[xinter_bool]))
                     else:
+                        f.write(f'{elemnt} ')
                         notx = np.array(lattice.all_atoms)!= 'X'
-                        notx_pos = lattice.all_positions[notx]
+                        notx_pos = lattice.all_frac_positions[notx]
                         inter_bool = [objt.e==elemnt for objt in np.array(lattice.all_atoms)[notx]]
                         order=order+list(notx_pos[inter_bool])
                         poscar_atomNum.append(len(notx_pos[inter_bool]))
-                if x_in_atomtypes==False:
+                if x_in_atomtypes==False and show_X==True:
                     f.write('X')
                     xinter_bool = np.array(lattice.all_atoms)=='X'
                     order=order+list(lattice.all_frac_positions[xinter_bool])
                     poscar_atomNum.append(len(lattice.all_frac_positions[xinter_bool]))
             else:
                 for elemnt in lattice.atom_types:
-                    f.write(f'{elemnt} ')
                     if elemnt=='X':
+                        if show_X==False:
+                            continue
+                        f.write(f'{elemnt} ')
                         xinter_bool = np.array(lattice.atoms)=='X'
                         order=order+list(lattice.frac_lat_positions[xinter_bool])
                         poscar_atomNum.append(len(lattice.frac_lat_positions[xinter_bool]))
                     else:
+                        f.write(f'{elemnt} ')
                         notx = np.array(lattice.atoms)!= 'X'
                         notx_pos = lattice.frac_lat_positions[notx]
                         inter_bool = [objt.e==elemnt for objt in np.array(lattice.atoms)[notx]]
@@ -797,31 +803,37 @@ def POSCAR_saveFile (output_file,lattice:Config, cartesian=False, show_inter=Fal
         else:
             if show_inter==True:
                 for elemnt in atomTypes:
-                    f.write(f'{elemnt} ')
                     if elemnt=='X':
+                        if show_X==False:
+                            continue
+                        f.write(f'{elemnt} ')
                         xinter_bool = np.array(lattice.all_atoms)=='X'
                         order=order+list(lattice.all_positions[xinter_bool])
                         x_in_atomtypes=True
                         poscar_atomNum.append(len(lattice.all_positions[xinter_bool]))
                     else:
+                        f.write(f'{elemnt} ')
                         notx = np.array(lattice.all_atoms)!= 'X'
                         notx_pos = lattice.all_positions[notx]
                         inter_bool = [objt.e==elemnt for objt in np.array(lattice.all_atoms)[notx]]
                         order=order+list(notx_pos[inter_bool])
                         poscar_atomNum.append(len(notx_pos[inter_bool]))
-                if x_in_atomtypes==False:
+                if x_in_atomtypes==False and show_X==True:
                     f.write('X')
                     xinter_bool = np.array(lattice.all_atoms)=='X'
                     order=order+list(lattice.all_positions[xinter_bool])
                     poscar_atomNum.append(len(lattice.all_positions[xinter_bool]))
             else:
                 for elemnt in lattice.atom_types:
-                    f.write(f'{elemnt} ')
                     if elemnt=='X':
+                        if show_X==False:
+                            continue
+                        f.write(f'{elemnt} ')
                         xinter_bool = np.array(lattice.atoms)=='X'
                         order=order+list(lattice.lat_positions[xinter_bool])
                         poscar_atomNum.append(len(lattice.lat_positions[xinter_bool]))
                     else:
+                        f.write(f'{elemnt} ')
                         notx = np.array(lattice.atoms)!= 'X'
                         notx_pos = lattice.lat_positions[notx]
                         inter_bool = [objt.e==elemnt for objt in np.array(lattice.atoms)[notx]]
@@ -921,6 +933,19 @@ def Plane_corresponding_movement (crys:Config, possible_events:list):
 
     return event_planes
 
+def Corresponding_plane_energy (E_100:float, E_010:float, E_001:float, E_110:float, E_101:float, E_011:float, E_111:float, planes):
+    plane_100 = (planes[:,0]==1)*(planes[:,1]==0)*(planes[:,2]==0) * E_100
+    plane_010 = (planes[:,0]==0)*(planes[:,1]==1)*(planes[:,2]==0) * E_010
+    plane_001 = (planes[:,0]==0)*(planes[:,1]==0)*(planes[:,2]==1) * E_001
+    plane_110 = (planes[:,0]==1)*(planes[:,1]==1)*(planes[:,2]==0) * E_110
+    plane_101 = (planes[:,0]==1)*(planes[:,1]==0)*(planes[:,2]==1) * E_101
+    plane_011 = (planes[:,0]==0)*(planes[:,1]==1)*(planes[:,2]==1) * E_011
+    plane_111 = (planes[:,0]==1)*(planes[:,1]==1)*(planes[:,2]==1) * E_111
+
+    plane_energy = plane_100+plane_010+plane_001+plane_110+plane_101+plane_011+plane_111
+
+    return np.reshape(plane_energy, (len(plane_energy),1))
+
 def All_Events(crys:Config):
     '''
     Determines all possible events/pathways
@@ -966,8 +991,9 @@ def rates_of_All_Events (crys:Config, possible_events:list,T):
     #each of these should be an array of shape nx1 where n = len(possible_events)
     attempt_freq = np.ones((len(possible_events),1)) #change later to more accurate
 
-    planes = Plane_corresponding_movement(crys, possible_events)
-    energy_barrier = np.ones((len(possible_events),1)) #change, found using DFT calculations?
+    planes = abs(Plane_corresponding_movement(crys, possible_events))
+    energy_barrier = Corresponding_plane_energy(E_100=1, E_010=1, E_001=1, E_110=2, E_101=2, E_011=2, E_111=1.5, planes=planes)
+    #energy_barrier = np.ones((len(possible_events),1)) #change, found using DFT calculations?
     energy_initial = np.zeros((len(possible_events),1)) #change, found using cluster expansion?
 
     rates_AE = attempt_freq * np.exp(-1*(energy_barrier-energy_initial)/(k_B*T) )
@@ -1016,7 +1042,7 @@ def kMC_Main (crys:Config, diffusion, temp):
 
 start_time = time.time()
 
-bcc = Config('zincblende',3,['Ga','N'], [1,1], [], [], ['H'],[1], 3,3,3, randm=True)
+bcc = Config('zincblende',4.27,['Ga','N'], [1,1], [], [], ['H'],[1], 2,2,2, randm=True)
 print(len(bcc.all_positions))
 print(len(bcc.nearest_neighbor[0]))
 #print(bcc.lat_positions)
@@ -1028,7 +1054,8 @@ print(len(bcc.nearest_neighbor[0]))
         #print(len(line))
 #print(fcc.nearest_neighbor)
 
-POSCAR_saveFile ('../test.vasp',bcc, cartesian=True, show_inter=True)
+POSCAR_saveFile ('../test.vasp',bcc, cartesian=True, show_inter=True, show_X=False)
+POSCAR_saveFile ('../test_sample_frac.vasp',bcc, cartesian=False, show_inter=True, show_X=False)
 Config_saveFile ('../test.cfg',bcc, show_inter=True)
 iteration_start_time = time.time()
 

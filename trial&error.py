@@ -77,3 +77,4 @@ print(solve)
 
 print(np.min(rofae,axis=1, initial=10, where=(rofae!=2)))
 print(np.reshape(np.repeat(np.min(rofae,axis=1, initial=10, where=(rofae!=2)),6), (3,6)))
+print(rofae[:,0]==1)
