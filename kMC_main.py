@@ -172,8 +172,11 @@ class Config:
 
         return cartesian
 
-    def __init__(self, struct:str, lattice_a:float, atom_types:list, ratio:list, inter_atom_types:list, inter_ratio:list,
-                  nx=1, ny=1, nz=1, randm=False, replace_first_atom=True, structures=structures):
+    def dopant_location(self, location, ):
+        return #indexes for the atoms located in the proper area (list or ndarray)
+
+    def __init__(self, struct:str, lattice_a:float, atom_types:list, ratio:list, dope_atoms:list, dope_numb:list, inter_atom_types:list, inter_ratio:list,
+                  nx=1, ny=1, nz=1, randm=True, replace_first_atom=True, dope_location=['everywhere'], structures=structures):
         '''
         '''
         self.time = 0
@@ -187,6 +190,7 @@ class Config:
         self.ratio = ratio
         self.inter_atom_types = inter_atom_types
         self.inter_ratio = inter_ratio
+        self.possible_dope_locations = ['everywhere','top-half','bottom-half']
 
         element_types=[Element(elmnt) for elmnt in atom_types]
         inter_element_types=[Element(inter) for inter in inter_atom_types]
@@ -375,23 +379,23 @@ class Config:
                                                                                  lattice_a, np.sqrt(13)*0.25*lattice_a,
                                                                                  (np.sqrt(2)*lattice_a),(np.sqrt(3)*lattice_a)])
             
-            self.total_possible_events_first = np.concatenate((np.repeat(self.all_positions,self.maxNN_natoms,axis=0),
-                                                               np.reshape(np.array(self.nearest_neighbor[0]),(len(self.all_positions)*self.maxNN_natoms,3))),axis=1)
-            self.total_possible_events_second = np.concatenate((np.repeat(self.all_positions,self.maxNN_natoms,axis=0),
-                                                                np.reshape(np.array(self.nearest_neighbor[1]),(len(self.all_positions)*self.maxNN_natoms,3))),axis=1)
-
+            #Total possible events for this system
+            self.inter_nearest_neighbor,self.total_possible_events_first,self.total_possible_events_second = self.Total_possible_events(self.inter_positions, 
+                                                                                                                                       self.maxNN_natoms,
+                                                                                                                                       [(lattice_a),#<--change these v
+                                                                                                                                        (lattice_a)])#_______________j
             #Making string versions of the positions and nearest neighbors
-            self.str_all_positions = np.array(['-1,-1,-1']+[",".join(item) for item in 
-                                                            np.tile(self.all_positions,(self.maxNN_natoms,1)).astype(str)])
+            self.str_inter_positions = np.array(['-1,-1,-1']+[",".join(item) for item in 
+                                                            np.tile(self.inter_positions,(self.maxNN_natoms,1)).astype(str)])
             self.str_first_nearest_neighbor = np.array([",".join(item) for item in 
-                                                        np.array(self.nearest_neighbor[0]).reshape(len(self.all_positions)*self.maxNN_natoms,3).astype(str)])
+                                                        np.array(self.inter_nearest_neighbor[0]).reshape(len(self.inter_positions)*self.maxNN_natoms,3).astype(str)])
             self.str_second_nearest_neighbor = np.array([",".join(item) for item in 
-                                                         np.array(self.nearest_neighbor[1]).reshape(len(self.all_positions)*self.maxNN_natoms,3).astype(str)])
+                                                         np.array(self.inter_nearest_neighbor[1]).reshape(len(self.inter_positions)*self.maxNN_natoms,3).astype(str)])
 
             #finding the all_positions indices for the nearest neighbors ie self.all_positions[self.first_indices]==self.str_first_nearest_neighbor
-            sorter = self.str_all_positions.argsort(kind='mergesort')
-            self.first_indices = np.array(sorter[np.searchsorted(self.str_all_positions, self.str_first_nearest_neighbor,sorter=sorter)]-1)
-            self.second_indices = np.array(sorter[np.searchsorted(self.str_all_positions, self.str_second_nearest_neighbor,sorter=sorter)]-1)
+            sorter = self.str_inter_positions.argsort(kind='mergesort')
+            self.first_indices = np.array(sorter[np.searchsorted(self.str_inter_positions, self.str_first_nearest_neighbor,sorter=sorter)]-1)
+            self.second_indices = np.array(sorter[np.searchsorted(self.str_inter_positions, self.str_second_nearest_neighbor,sorter=sorter)]-1)
 
         elif struct=='hcp': #---------------------------------------------------------------------------------------------------
             self.basis_vectors=np.array([[lattice_a, 0, 0],
@@ -515,13 +519,43 @@ class Config:
                 else:
                     len_random = [len(fcc_lat_positions),len(atom_list)-1]
                     self.ratio[1] = self.ratio[1] - sum(ratio[2:])
+
                 for inx,rat in enumerate(ratio[2:]):
                     for position in range(round((rat/sum(ratio))*total)):
                         in_num = random.randrange(len_random[0],len_random[1])
                         atom_list[in_num]=Atom(element_types[inx+2],'LAT_'+element_types[inx+2].e+str(position))
+
+                if dope_atoms!=[]: 
+                    dope_id_count=0
+                    for dope_index,amount in enumerate(dope_numb):
+                        for each_dope in range(amount):
+                            atom_replace_num = random.randrange(len_random[0],len_random[1])
+                            atom_list[atom_replace_num]= Atom(Element(dope_atoms[dope_index]),ID='LAT'+str(dope_id_count))
+                            dope_id_count+=1
+
             else:
                 atom_list = [Atom(element_types[i],'LAT_'+element_types[i].e+str(position)) for i,r in enumerate(ratio) 
                             for position in range(round((r/sum(ratio))*total))]
+                if dope_atoms!=[]:
+                    if replace_first_atom==True:
+                        len_random = [0,len(fcc_lat_positions)-1]
+                    else:
+                        len_random = [len(fcc_lat_positions),len(atom_list)-1]
+
+                    dope_id_count=0
+                    if randm==True:
+                        for dope_index,amount in enumerate(dope_numb):
+                            for each_dope in range(amount):
+                                atom_replace_num = random.randrange(len_random[0],len_random[1])
+                                atom_list[atom_replace_num]= Atom(Element(dope_atoms[dope_index]),ID='LAT'+str(dope_id_count))
+                                dope_id_count+=1
+                    else:
+                        for dinx, dopant_amount in enumerate(dope_numb):
+                            locations = self.dopant_location(dope_location[dinx])
+                            for individual in range(dopant_amount):
+                                atom_list[locations[individual]]=Atom(Element(dope_atoms[dinx]),ID='LAT'+str(dope_id_count))
+                                dope_id_count+=1
+
             for i,a in enumerate(atom_list):
                 if a.e == 'X':
                     atom_list[i] = 'X'
@@ -812,7 +846,10 @@ def Config_saveFile (output_file,lattice:Config, show_inter=False): #does not qu
     
     '''
     with open(output_file, 'w') as f:
-        f.write(f'Number of particles = {lattice.nx*lattice.ny*lattice.nz*len(lattice.unit_cell)}\n')
+        if show_inter==True:
+            f.write(f'Number of particles = {lattice.total + lattice.inter_total}\n')
+        else:
+            f.write(f'Number of particles = {lattice.total}\n')
         f.write('A = 1.0 Angstrom (basic length-scale)\n')
         
         f.write(f'H0(1,1) = {lattice.basis_vectors[0][0]*lattice.nx} A\n')
@@ -827,22 +864,36 @@ def Config_saveFile (output_file,lattice:Config, show_inter=False): #does not qu
         
         f.write(f'.NO_VELOCITY.\nentry_count = 3\n')
 
-        if show_inter==True:
-            count=0
-            for line in lattice.frac_inter_positions:
-                f.write(f'{lattice.inter_atoms[count].m}\n')
-                f.write(f'{lattice.inter_atoms[count].e}\n')
-                f.write(f'{line[0]} {line[1]} {line[2]}\n')
-                count+=1
         count=0
+        count_inter=0
         for line in lattice.frac_lat_positions:
-            f.write(f'{lattice.atoms[count].m}\n')
-            f.write(f'{lattice.atoms[count].e}\n')
-            f.write(f'{line[0]} {line[1]} {line[2]}\n')
+            if lattice.atoms[count]=='X':
+                f.write(f'0\n')
+                f.write(f'{lattice.atoms[count]}\n')
+                f.write(f'{line[0]} {line[1]} {line[2]}\n')
+            else:
+                f.write(f'{lattice.atoms[count].m}\n')
+                f.write(f'{lattice.atoms[count].e}\n')
+                f.write(f'{line[0]} {line[1]} {line[2]}\n')
             count+=1
+        if show_inter==True:
+            for line in lattice.frac_inter_positions:
+                if lattice.inter_atoms[count_inter]=='X':
+                    f.write(f'0\n')
+                    f.write(f'{lattice.atoms[count_inter]}\n')
+                    f.write(f'{line[0]} {line[1]} {line[2]}\n')
+                else:
+                    f.write(f'{lattice.inter_atoms[count_inter].m}\n')
+                    f.write(f'{lattice.inter_atoms[count_inter].e}\n')
+                    f.write(f'{line[0]} {line[1]} {line[2]}\n')
+                count_inter+=1
+        #print(count+count_inter)
 
 def Diffusivity (E_100:float, E_010:float, E_001:float, E_110:float, E_101:float, E_011:float, T:float, eV=True):
-    D_0 = 1 #m^2/s
+    '''
+    
+    '''
+    D_0 = 1 #m^2/s    change to a more accurate value
     k_B = 8.617333262 * (10**(-5)) #eV/K
     if eV == False:
         conversion = 1.602 * (10**(-19)) #Coulombs
@@ -857,6 +908,18 @@ def Diffusivity (E_100:float, E_010:float, E_001:float, E_110:float, E_101:float
                           [(D_0*np.exp(-E_110/(k_B*T))), (D_0*np.exp(-E_010/(k_B*T))), (D_0*np.exp(-E_011/(k_B*T)))],
                           [(D_0*np.exp(-E_101/(k_B*T))), (D_0*np.exp(-E_011/(k_B*T))), (D_0*np.exp(-E_001/(k_B*T)))]])
     return diffusion
+
+def Plane_corresponding_movement (crys:Config, possible_events:list):
+    #doesn't work for wurtzite and probably hcp
+    move_direction = np.array(possible_events)[:,:3] - np.array(possible_events)[:,3:]
+    basis_vectors_tiled = np.tile(crys.basis_vectors, (len(possible_events),1,1))
+
+    notyet_event_planes = np.round(np.linalg.solve(basis_vectors_tiled,move_direction),3)
+    
+    whole_num = np.reshape(np.repeat(np.min(notyet_event_planes, axis=1, initial=1, where=(notyet_event_planes!=0)), 3), (len(notyet_event_planes),3))
+    event_planes = notyet_event_planes / whole_num
+
+    return event_planes
 
 def All_Events(crys:Config):
     '''
@@ -894,11 +957,18 @@ def All_Events(crys:Config):
     return Possible_Events
 
 def rates_of_All_Events (crys:Config, possible_events:list,T):
+    '''
+    
+    '''
     #k_B = 1.380649*(10**(-23)) #Joules/Kelvin
     k_B = 8.617333262 * (10**(-5)) #eV/K
+
+    #each of these should be an array of shape nx1 where n = len(possible_events)
     attempt_freq = np.ones((len(possible_events),1)) #change later to more accurate
-    energy_barrier = np.ones((len(possible_events),1)) #change
-    energy_initial = np.zeros((len(possible_events),1)) #change
+
+    planes = Plane_corresponding_movement(crys, possible_events)
+    energy_barrier = np.ones((len(possible_events),1)) #change, found using DFT calculations?
+    energy_initial = np.zeros((len(possible_events),1)) #change, found using cluster expansion?
 
     rates_AE = attempt_freq * np.exp(-1*(energy_barrier-energy_initial)/(k_B*T) )
     return rates_AE
@@ -946,7 +1016,7 @@ def kMC_Main (crys:Config, diffusion, temp):
 
 start_time = time.time()
 
-bcc = Config('wurtzite',3,['Ga','N', 'Mg'], [1,1,0.1],['H'],[1], 3,3,3, randm=True)
+bcc = Config('zincblende',3,['Ga','N'], [1,1], [], [], ['H'],[1], 3,3,3, randm=True)
 print(len(bcc.all_positions))
 print(len(bcc.nearest_neighbor[0]))
 #print(bcc.lat_positions)
@@ -959,6 +1029,7 @@ print(len(bcc.nearest_neighbor[0]))
 #print(fcc.nearest_neighbor)
 
 POSCAR_saveFile ('../test.vasp',bcc, cartesian=True, show_inter=True)
+Config_saveFile ('../test.cfg',bcc, show_inter=True)
 iteration_start_time = time.time()
 
 temp = 550
@@ -969,10 +1040,12 @@ e110 = 1
 e101 = 1
 e011 = 1
 diffusion = Diffusivity(e100,e010, e001, e110, e101, e011, T=temp)
-for iteration in range(500):
+for iteration in range(5):
     kMC_Main(bcc, diffusion, temp)
     #print(crys_new.all_atoms==crys.all_atoms)
     #crys = crys_new
+    #if iteration%100 ==0:
+    #    print(bcc.MSD)
 #print(bcc.time)
 print("Iterations --- %s seconds ---" % (time.time() - iteration_start_time))
 POSCAR_saveFile ('../final_test.vasp',bcc, cartesian=True, show_inter=True)

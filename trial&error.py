@@ -65,6 +65,15 @@ print(i-1)
 #new_i = (((i_newshape[total_bool][:,2]+1)/3)-1).astype(int)
 
 #print(new_i)
-rofae = np.array([1,2,3,4,5,6,7])
-ello = np.array([4,4,2,3,6,7,1])
-print(rofae*ello)
+rofae = np.array([[1,2,3,4,5,6],[6,5,4,3,2,1],[8,5,2,7,9,4]])
+ello = np.array([[3,0,0],[0,1,0],[0,0,2]])
+ello_new = np.tile(ello, (len(rofae),1,1))
+
+uhhh = rofae[:,:3]-rofae[:,3:]
+
+solve = np.linalg.solve(ello_new,uhhh)
+print(uhhh)
+print(solve)
+
+print(np.min(rofae,axis=1, initial=10, where=(rofae!=2)))
+print(np.reshape(np.repeat(np.min(rofae,axis=1, initial=10, where=(rofae!=2)),6), (3,6)))
