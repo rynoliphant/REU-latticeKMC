@@ -119,21 +119,21 @@ class Config:
         '''
         n_neighbor = []
         first_neigh = []
-        second_neigh = []
+        #second_neigh = []
         for coor in positions:
             dist = np.linalg.norm(positions-coor,axis=1)
             first_bool = np.around(dist,5) == round(neighbor_dist[0],5)
-            second_bool = np.around(dist,5) == round(neighbor_dist[1],5)
+            #second_bool = np.around(dist,5) == round(neighbor_dist[1],5)
             first_neigh.append(list(positions[first_bool]) + list(-1*np.ones((maxNN_natoms-len(positions[first_bool]),3))))
-            second_neigh.append(list(positions[second_bool]) + list(-1*np.ones((maxNN_natoms-len(positions[second_bool]),3))))
+            #second_neigh.append(list(positions[second_bool]) + list(-1*np.ones((maxNN_natoms-len(positions[second_bool]),3))))
         n_neighbor.append(first_neigh)
-        n_neighbor.append(second_neigh)
+        #n_neighbor.append(second_neigh)
 
         total_possible_events_first = np.concatenate((np.repeat(positions,maxNN_natoms,axis=0),
                                                                np.reshape(np.array(first_neigh),(len(positions)*maxNN_natoms,3))),axis=1)
-        total_possible_events_second = np.concatenate((np.repeat(positions,maxNN_natoms,axis=0),
-                                                                np.reshape(np.array(second_neigh),(len(positions)*maxNN_natoms,3))),axis=1)
-        return n_neighbor,total_possible_events_first,total_possible_events_second
+        #total_possible_events_second = np.concatenate((np.repeat(positions,maxNN_natoms,axis=0),
+        #                                                        np.reshape(np.array(second_neigh),(len(positions)*maxNN_natoms,3))),axis=1)
+        return n_neighbor,total_possible_events_first#,total_possible_events_second
             
     def cartesian_coor(self, positions, a,b,c, alpha, beta, gamma,nx:int,ny:int,nz:int):
         '''
@@ -178,9 +178,12 @@ class Config:
     def __init__(self, struct:str, lattice_a:float, atom_types:list, ratio:list, dope_atoms:list, dope_numb:list, inter_atom_types:list, inter_ratio:list,
                   nx=1, ny=1, nz=1, randm=True, replace_first_atom=True, dope_location=['everywhere'], structures=structures):
         '''
+        lattice_a is in Angstroms
         '''
         self.time = 0
         self.MSD = 0
+        self.all_occurred_events = []
+        self.diffusivity = np.array([[0,0,0],[0,0,0],[0,0,0]])
         self.struct = struct
         self.nx = nx
         self.ny = ny
@@ -576,7 +579,9 @@ class Config:
                                     [0.25,0.25,0.75],
                                     [0.75,0.75,0.75]]
             self.inter_unit_cell = self.octa_unit_cell + self.tetra_unit_cell
-            self.frac_inter_positions = self.generate_supercell(self.inter_unit_cell,nx,ny,nz)
+            self.octa_positions = self.generate_supercell(self.octa_unit_cell, nx,ny,nz)
+            self.tetra_positions = self.generate_supercell(self.tetra_unit_cell, nx,ny,nz)
+            self.frac_inter_positions = np.array(list(self.octa_positions) + list(self.tetra_positions))
             self.inter_positions = self.cartesian_coor(self.frac_inter_positions,lattice_a,lattice_a,lattice_a,90,90,90,nx,ny,nz)
 
             #List of Atoms for Interstitial Sites
@@ -612,22 +617,22 @@ class Config:
                                                                                  (np.sqrt(19)*lattice_a/4), np.sqrt(3/2)*lattice_a])
             
             #Total possible events for this system
-            self.inter_nearest_neighbor,self.total_possible_events_first,self.total_possible_events_second = self.Total_possible_events(self.inter_positions, 
-                                                                                                                                       self.maxNN_natoms,
-                                                                                                                                       [(np.sqrt(3)*0.25*lattice_a),
-                                                                                                                                        (lattice_a/np.sqrt(2))])
+            self.inter_nearest_neighbor,self.total_possible_events_first = self.Total_possible_events(self.inter_positions, 
+                                                                                                        self.maxNN_natoms,
+                                                                                                        [(np.sqrt(3)*0.25*lattice_a)]) #,self.total_possible_events_second
             #Making string versions of the positions and nearest neighbors
             self.str_inter_positions = np.array(['-1,-1,-1']+[",".join(item) for item in 
                                                             np.tile(self.inter_positions,(self.maxNN_natoms,1)).astype(str)])
             self.str_first_nearest_neighbor = np.array([",".join(item) for item in 
                                                         np.array(self.inter_nearest_neighbor[0]).reshape(len(self.inter_positions)*self.maxNN_natoms,3).astype(str)])
-            self.str_second_nearest_neighbor = np.array([",".join(item) for item in 
-                                                         np.array(self.inter_nearest_neighbor[1]).reshape(len(self.inter_positions)*self.maxNN_natoms,3).astype(str)])
+            #self.str_second_nearest_neighbor = np.array([",".join(item) for item in 
+            #                                             np.array(self.inter_nearest_neighbor[1]).reshape(len(self.inter_positions)*self.maxNN_natoms,3).astype(str)])
 
             #finding the all_positions indices for the nearest neighbors ie self.all_positions[self.first_indices]==self.str_first_nearest_neighbor
             sorter = self.str_inter_positions.argsort(kind='mergesort')
             self.first_indices = np.array(sorter[np.searchsorted(self.str_inter_positions, self.str_first_nearest_neighbor,sorter=sorter)]-1)
-            self.second_indices = np.array(sorter[np.searchsorted(self.str_inter_positions, self.str_second_nearest_neighbor,sorter=sorter)]-1)
+            self.true_octa = self.first_indices<(0.5*len(self.inter_positions))
+            #self.second_indices = np.array(sorter[np.searchsorted(self.str_inter_positions, self.str_second_nearest_neighbor,sorter=sorter)]-1)
 
         elif struct=='wurtzite': #----------------------------------------------------------------------------------------------
             self.basis_vectors=np.array([[lattice_a, 0, 0],
@@ -680,7 +685,9 @@ class Config:
             self.tetra_unit_cell = [[(1/3),(2/3),(5/8)],
                                     [(2/3),(1/3),(1/8)]]
             self.inter_unit_cell = self.octa_unit_cell + self.tetra_unit_cell
-            self.frac_inter_positions = self.generate_supercell(self.inter_unit_cell,nx,ny,nz)
+            self.octa_positions = self.generate_supercell(self.octa_unit_cell, nx,ny,nz)
+            self.tetra_positions = self.generate_supercell(self.tetra_unit_cell, nx,ny,nz)
+            self.frac_inter_positions = np.array(list(self.octa_positions) + list(self.tetra_positions))
             self.inter_positions=self.cartesian_coor(self.frac_inter_positions,lattice_a,lattice_a,np.sqrt(8/3)*lattice_a,90,90,120,nx,ny,nz)
 
             #List of Atoms for Interstitial Sites
@@ -717,22 +724,23 @@ class Config:
                                                                                  #np.sqrt(2)*lattice_a,np.sqrt(8/3)*lattice_a])
 
             #Total possible events for this system
-            self.inter_nearest_neighbor,self.total_possible_events_first,self.total_possible_events_second = self.Total_possible_events(self.inter_positions, 
+            self.inter_nearest_neighbor,self.total_possible_events_first = self.Total_possible_events(self.inter_positions, 
                                                                                                                                        self.maxNN_natoms,
                                                                                                                                        [(np.sqrt(3/8)*lattice_a),
-                                                                                                                                        (lattice_a*np.sqrt(2/3))])
+                                                                                                                                        (lattice_a*np.sqrt(2/3))]) #,self.total_possible_events_second
             #Making string versions of the positions and nearest neighbors
             self.str_inter_positions = np.array(['-1,-1,-1']+[",".join(item) for item in 
                                                             np.tile(self.inter_positions,(self.maxNN_natoms,1)).astype(str)])
             self.str_first_nearest_neighbor = np.array([",".join(item) for item in 
                                                         np.array(self.inter_nearest_neighbor[0]).reshape(len(self.inter_positions)*self.maxNN_natoms,3).astype(str)])
-            self.str_second_nearest_neighbor = np.array([",".join(item) for item in 
-                                                         np.array(self.inter_nearest_neighbor[1]).reshape(len(self.inter_positions)*self.maxNN_natoms,3).astype(str)])
+            #self.str_second_nearest_neighbor = np.array([",".join(item) for item in 
+            #                                             np.array(self.inter_nearest_neighbor[1]).reshape(len(self.inter_positions)*self.maxNN_natoms,3).astype(str)])
 
             #finding the all_positions indices for the nearest neighbors ie self.all_positions[self.first_indices]==self.str_first_nearest_neighbor
             sorter = self.str_inter_positions.argsort(kind='mergesort')
             self.first_indices = np.array(sorter[np.searchsorted(self.str_inter_positions, self.str_first_nearest_neighbor,sorter=sorter)]-1)
-            self.second_indices = np.array(sorter[np.searchsorted(self.str_inter_positions, self.str_second_nearest_neighbor,sorter=sorter)]-1)
+            self.true_octa = self.first_indices<(0.5*len(self.inter_positions))
+            #self.second_indices = np.array(sorter[np.searchsorted(self.str_inter_positions, self.str_second_nearest_neighbor,sorter=sorter)]-1)
 
         else: #-----------------------------------------------------------------------------------------------------------------
             print('ERROR:',struct,"is not an available structure:",structures)
@@ -901,12 +909,26 @@ def Config_saveFile (output_file,lattice:Config, show_inter=False): #does not qu
                 count_inter+=1
         #print(count+count_inter)
 
-def Diffusivity (E_100:float, E_010:float, E_001:float, E_110:float, E_101:float, E_011:float, T:float, eV=True):
+def Magnitude(vector):
+    return np.sqrt((vector[0]*vector[0]) + (vector[1]*vector[1]) + (vector[2]*vector[2]))
+
+def Diffusivity_based_on_energy (E_a, delta_E_a, T:float, eV=True):
     '''
     
     '''
-    D_0 = 1 #m^2/s    change to a more accurate value
+    D_0 = 10**(-6) #cm^2/s    change to a more accurate value
     k_B = 8.617333262 * (10**(-5)) #eV/K
+
+    E_TtO = E_a + delta_E_a
+
+    E_100 = 4*E_a + 2*delta_E_a
+    E_010 = E_100
+    E_001 = E_100
+
+    E_110 = 2*E_a + delta_E_a
+    E_101 = E_110
+    E_011 = E_110
+
     if eV == False:
         conversion = 1.602 * (10**(-19)) #Coulombs
         E_100 = E_100/conversion
@@ -916,10 +938,83 @@ def Diffusivity (E_100:float, E_010:float, E_001:float, E_110:float, E_101:float
         E_101 = E_101/conversion
         E_011 = E_011/conversion
 
-    diffusion = np.array([[(D_0*np.exp(-E_100/(k_B*T))), (D_0*np.exp(-E_110/(k_B*T))), (D_0*np.exp(-E_101/(k_B*T)))],
-                          [(D_0*np.exp(-E_110/(k_B*T))), (D_0*np.exp(-E_010/(k_B*T))), (D_0*np.exp(-E_011/(k_B*T)))],
-                          [(D_0*np.exp(-E_101/(k_B*T))), (D_0*np.exp(-E_011/(k_B*T))), (D_0*np.exp(-E_001/(k_B*T)))]])
+    #diffusion = np.array([[D_0*(np.exp(-E_100/(k_B*T))), D_0*(np.exp(-E_110/(k_B*T))), D_0*(np.exp(-E_101/(k_B*T)))],
+    #                      [D_0*(np.exp(-E_110/(k_B*T))), D_0*(np.exp(-E_010/(k_B*T))), D_0*(np.exp(-E_100/(k_B*T)))],
+    #                      [D_0*(np.exp(-E_101/(k_B*T))), D_0*(np.exp(-E_011/(k_B*T))), D_0*(np.exp(-E_001/(k_B*T)))]])
+
+    diffusion = np.array([[(D_0*2*(np.exp(-E_a/(k_B*T)))+np.exp(-E_TtO/(k_B*T))), (D_0*(np.exp(-E_a/(k_B*T)))+np.exp(-E_TtO/(k_B*T))), (D_0*(np.exp(-E_a/(k_B*T)))+np.exp(-E_TtO/(k_B*T)))],
+                          [(D_0*(np.exp(-E_a/(k_B*T)))+np.exp(-E_TtO/(k_B*T))), (D_0*2*(np.exp(-E_a/(k_B*T)))+np.exp(-E_TtO/(k_B*T))), (D_0*(np.exp(-E_a/(k_B*T)))+np.exp(-E_TtO/(k_B*T)))],
+                          [(D_0*(np.exp(-E_a/(k_B*T)))+np.exp(-E_TtO/(k_B*T))), (D_0*(np.exp(-E_a/(k_B*T)))+np.exp(-E_TtO/(k_B*T))), (D_0*2*(np.exp(-E_a/(k_B*T)))+np.exp(-E_TtO/(k_B*T)))]])
     return diffusion
+
+def Diffusion_flux (crys:Config):
+    a_vect = crys.basis_vectors[0]*(10**(-8)) #x in cm
+    b_vect = crys.basis_vectors[1]*(10**(-8)) #y in cm
+    c_vect = crys.basis_vectors[2]*(10**(-8)) #z in cm
+
+    ab_vect = -1*a_vect + b_vect
+    ba_vect = a_vect + b_vect
+    bc_vect = -1*b_vect + c_vect
+    cb_vect = b_vect + c_vect
+    ac_vect = a_vect - c_vect
+    ca_vect = a_vect + c_vect
+
+    #planes for second-rank tensor
+    V_aa = np.cross(b_vect,c_vect) #y
+    V_ab = np.cross(ab_vect,c_vect) #y
+    V_ac = np.cross(ac_vect,b_vect) #y
+
+    V_ba = np.cross(c_vect, ba_vect) #m
+    V_bb = np.cross(c_vect, a_vect) #y
+    V_bc = np.cross(bc_vect,a_vect) #y
+
+    V_ca = np.cross(ca_vect,b_vect) #m
+    V_cb = np.cross(a_vect,cb_vect) #m
+    V_cc = np.cross(a_vect,b_vect) #y
+
+    all_events = np.array(crys.all_occurred_events)
+    event_vectors = (all_events[:,3:] - all_events[:,:3])* (10**(-8)) #cm
+    total_dist_traveled = sum( np.sqrt(event_vectors[:,0]**2 + event_vectors[:,1]**2 + event_vectors[:,2]**2) )  #cm
+    #tot_vector = sum(abs(event_vectors)) #cm
+    #total_x_comp = np.array([sum(event_vectors[:,0]), 0, 0])
+    #total_y_comp = np.array([0, sum(event_vectors[:,1]), 0])
+    #total_z_comp = np.array([0,0, sum(event_vectors[:,2])])
+
+    percent_aa = sum(abs(np.dot(event_vectors, V_aa)))
+    percent_ab = sum(abs(np.dot(event_vectors, V_ab)))
+    percent_ac = sum(abs(np.dot(event_vectors, V_ac)))
+
+    percent_ba = sum(abs(np.dot(event_vectors, V_ba)))
+    percent_bb = sum(abs(np.dot(event_vectors, V_bb)))
+    percent_bc = sum(abs(np.dot(event_vectors, V_bc)))
+
+    percent_ca = sum(abs(np.dot(event_vectors, V_ca)))
+    percent_cb = sum(abs(np.dot(event_vectors, V_cb)))
+    percent_cc = sum(abs(np.dot(event_vectors, V_cc)))
+
+    #print(sum(abs(np.dot(event_vectors, V_ba)))/total_dist_traveled)
+
+    diffusion_flux = ((len(all_events)*sum(crys.inter_ratio))/(crys.time*total_dist_traveled)) * np.array([[percent_aa/Magnitude(V_aa), percent_ab/Magnitude(V_ab), percent_ac/Magnitude(V_ac)],
+                                                                                   [percent_ba/Magnitude(V_ba), percent_bb/Magnitude(V_bb), percent_bc/Magnitude(V_bc)],
+                                                                                   [percent_ca/Magnitude(V_ca), percent_cb/Magnitude(V_cb), percent_cc/Magnitude(V_cc)]])
+
+    return diffusion_flux
+
+def Found_diffusivity (crys:Config):
+    diffusion_flux = Diffusion_flux(crys)
+
+    a_vect = crys.basis_vectors[0]*(10**(-8)) #cm
+    b_vect = crys.basis_vectors[1]*(10**(-8)) #cm
+    c_vect = crys.basis_vectors[2]*(10**(-8)) #cm
+
+    V_product = ( c_vect[0]*(a_vect[1]*b_vect[2]-a_vect[2]*b_vect[1]) 
+                 - c_vect[1]*(a_vect[0]*b_vect[2]-a_vect[2]*b_vect[0]) 
+                 + c_vect[2]*(a_vect[0]*b_vect[1]-a_vect[1]*b_vect[0]) )
+    gradient_concentration = ((-1*sum(crys.inter_ratio))/(crys.nx*crys.ny*crys.nz*V_product))*np.array([1/crys.nx, 1/crys.ny, 1/crys.nz])
+
+    diffusivity = -1*diffusion_flux/(gradient_concentration)
+
+    return diffusivity
 
 def Plane_corresponding_movement (crys:Config, possible_events:list):
     #doesn't work for wurtzite and probably hcp
@@ -972,16 +1067,17 @@ def All_Events(crys:Config):
     true_atom_bool = np.array(repeat_inter_atoms) != 'X' #(n*m)x1 bool of which are true atoms
 
     not_real_pos_first = (crys.total_possible_events_first[:,3]!=-1)*(crys.total_possible_events_first[:,4]!=-1)*(crys.total_possible_events_first[:,5]!=-1)
-    not_real_pos_second = (crys.total_possible_events_second[:,3]!=-1)*(crys.total_possible_events_second[:,4]!=-1)*(crys.total_possible_events_second[:,5]!=-1)
+    #not_real_pos_second = (crys.total_possible_events_second[:,3]!=-1)*(crys.total_possible_events_second[:,4]!=-1)*(crys.total_possible_events_second[:,5]!=-1)
     available_position_first = (crys.first_indices != -1)*(np.array(crys.inter_atoms)[crys.first_indices]=='X')*not_real_pos_first
-    available_position_second = (crys.second_indices != -1)*(np.array(crys.inter_atoms)[crys.second_indices]=='X')*not_real_pos_second
+    #available_position_second = (crys.second_indices != -1)*(np.array(crys.inter_atoms)[crys.second_indices]=='X')*not_real_pos_second
 
-    Possible_Events = (list(crys.total_possible_events_first[true_atom_bool*available_position_first])+
-                       list(crys.total_possible_events_second[true_atom_bool*available_position_second]))
+    Possible_Events = (list(crys.total_possible_events_first[true_atom_bool*available_position_first]))#+
+                       #list(crys.total_possible_events_second[true_atom_bool*available_position_second]))
+    Octa_to_tetraBool = crys.true_octa[true_atom_bool*available_position_first]
             
-    return Possible_Events
+    return Possible_Events, Octa_to_tetraBool
 
-def rates_of_All_Events (crys:Config, possible_events:list,T):
+def rates_of_All_Events (crys:Config, possible_events:list, ifOcta__tetra:np.array,T, E_a, delta_E_a):
     '''
     
     '''
@@ -989,17 +1085,20 @@ def rates_of_All_Events (crys:Config, possible_events:list,T):
     k_B = 8.617333262 * (10**(-5)) #eV/K
 
     #each of these should be an array of shape nx1 where n = len(possible_events)
-    attempt_freq = np.ones((len(possible_events),1)) #change later to more accurate
+    attempt_freq = np.ones((len(possible_events),1))*(10**(13)) #s^-1
 
-    planes = abs(Plane_corresponding_movement(crys, possible_events))
-    energy_barrier = Corresponding_plane_energy(E_100=1, E_010=1, E_001=1, E_110=2, E_101=2, E_011=2, E_111=1.5, planes=planes)
-    #energy_barrier = np.ones((len(possible_events),1)) #change, found using DFT calculations?
-    energy_initial = np.zeros((len(possible_events),1)) #change, found using cluster expansion?
+    #planes = abs(Plane_corresponding_movement(crys, possible_events))
+    #energy_barrier = Corresponding_plane_energy(E_100, E_010, E_001, E_110, E_101, E_011, E_111, planes)
+    octaToTetra = E_a #eV
+    tetraToOcta = E_a + delta_E_a #eV
+    energy_barrier = np.reshape(octaToTetra*ifOcta__tetra + tetraToOcta*(abs(ifOcta__tetra-1)),(len(possible_events),1))
+    #energy_barrier = np.ones((len(possible_events),1)) * T_O_energy
+    #energy_initial = np.zeros((len(possible_events),1)) #change, found using vasp DFT
 
-    rates_AE = attempt_freq * np.exp(-1*(energy_barrier-energy_initial)/(k_B*T) )
+    rates_AE = attempt_freq * np.exp(-1*(energy_barrier)/(k_B*T) )
     return rates_AE
 
-def kMC_Main (crys:Config, diffusion, temp):
+def kMC_Main (crys:Config, diffusion, temp, E_a, delta_E_a, iteration):
     '''
     Determines an event/pathway and moves the atom accordingly
 
@@ -1007,15 +1106,16 @@ def kMC_Main (crys:Config, diffusion, temp):
     ---------------------------
     crys: (Config) The structure you are altering
     '''
-    possible_events=All_Events(crys)
+    possible_events, ifOctaToTetra=All_Events(crys)
     if possible_events==[]:
         return crys
     
     #Choose an event
-    rates_of_events = rates_of_All_Events(crys, possible_events, temp)
+    rates_of_events = rates_of_All_Events(crys, possible_events, ifOctaToTetra, temp, E_a, delta_E_a)
     W_k = np.cumsum(rates_of_events)
     random_num = random.randrange(0,1000)/1000
-    event_occurs = np.where(W_k>= random_num*sum(rates_of_events))[0][0]
+    event_occurs = np.where(W_k >= random_num*sum(rates_of_events))[0][0]
+    crys.all_occurred_events.append(possible_events[event_occurs])
 
     #Atom moves
     initial_index = np.where((crys.all_positions[:,0]==possible_events[event_occurs][0]) 
@@ -1033,16 +1133,18 @@ def kMC_Main (crys:Config, diffusion, temp):
 
     #Update Time
     time_random_num = random.randrange(1,1000)/1000
-    delta_time = -1*(np.log(time_random_num))/(sum(rates_of_events))
+    delta_time = float(-1*(np.log(time_random_num))/(sum(rates_of_events)))
     crys.time = crys.time + delta_time
 
-    crys.MSD = 2*3*diffusion*delta_time
+    Diffusion = Found_diffusivity(crys)
+    crys.diffusivity = Diffusion
+    crys.MSD = 2*3*Diffusion*(crys.time/iteration)*np.array([[4,2,2],[2,4,2],[2,2,4]]) #cm^2
 
     return crys
 
 start_time = time.time()
 
-bcc = Config('zincblende',4.27,['Ga','N'], [1,1], [], [], ['H'],[1], 2,2,2, randm=True)
+bcc = Config('zincblende',4.27,['Ga','N'], [1,1], [], [], ['H'],[1], 5,5,5, randm=True)
 print(len(bcc.all_positions))
 print(len(bcc.nearest_neighbor[0]))
 #print(bcc.lat_positions)
@@ -1059,21 +1161,31 @@ POSCAR_saveFile ('../test_sample_frac.vasp',bcc, cartesian=False, show_inter=Tru
 Config_saveFile ('../test.cfg',bcc, show_inter=True)
 iteration_start_time = time.time()
 
-temp = 550
-e100 = 1
-e010 = 1
-e001 = 1
-e110 = 1
-e101 = 1
-e011 = 1
-diffusion = Diffusivity(e100,e010, e001, e110, e101, e011, T=temp)
-for iteration in range(5):
-    kMC_Main(bcc, diffusion, temp)
+temp = 300 #K
+#e100 = 1 #eV
+#e010 = 1
+#e001 = 1
+#e110 = 1
+#e101 = 1
+#e011 = 1
+#e111 = 2
+
+E_a = 0.2 #eV
+delta_E_a = 0.3 #eV
+
+diffusion = Diffusivity_based_on_energy(E_a, delta_E_a, T=temp) #cm^2/s
+print(diffusion)
+for iteration in range(1010):
+    kMC_Main(bcc, diffusion, temp, E_a, delta_E_a, iteration+1)
     #print(crys_new.all_atoms==crys.all_atoms)
     #crys = crys_new
-    #if iteration%100 ==0:
-    #    print(bcc.MSD)
+    if iteration%1000 ==0:
+        print(iteration)
+        print(bcc.diffusivity)
+        #print(np.mean(bcc.diffusivity))
+        #print(bcc.MSD)
 #print(bcc.time)
+#print(bcc.MSD)
 print("Iterations --- %s seconds ---" % (time.time() - iteration_start_time))
-POSCAR_saveFile ('../final_test.vasp',bcc, cartesian=True, show_inter=True)
+POSCAR_saveFile ('../final_test.vasp',bcc, cartesian=True, show_inter=True, show_X=False)
 print("Total --- %s seconds ---" % (time.time() - start_time))

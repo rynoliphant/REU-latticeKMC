@@ -78,3 +78,9 @@ print(solve)
 print(np.min(rofae,axis=1, initial=10, where=(rofae!=2)))
 print(np.reshape(np.repeat(np.min(rofae,axis=1, initial=10, where=(rofae!=2)),6), (3,6)))
 print(rofae[:,0]==1)
+
+flux = np.array([[1,2,3],[4,5,6],[3,1,6]])
+concentration = np.array([1,2,3])
+
+print(np.sqrt(flux[:,0]**2 + flux[:,1]**2 + flux[:,2]**2))
+print(sum(flux))
