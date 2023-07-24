@@ -591,7 +591,10 @@ class Config:
             id_count=0
             for atom_index,amount in enumerate(inter_ratio):
                 for additional in range(amount):
-                    inter_num = random.randrange(0,len(inter_atom_list)-1)
+                    if randm==True:
+                        inter_num = random.randrange(0,len(inter_atom_list)-1)
+                    else:
+                        inter_num = id_count
                     inter_atom_list[inter_num]= Atom(Element(inter_atom_types[atom_index]),ID='INTER'+str(id_count))
                     id_count+=1
             if len(inter_atom_list)>len(self.inter_positions):
@@ -697,7 +700,10 @@ class Config:
             id_count=0
             for atom_index,amount in enumerate(inter_ratio):
                 for additional in range(amount):
-                    inter_num = random.randrange(0,len(inter_atom_list)-1)
+                    if randm==True:
+                        inter_num = random.randrange(0,len(inter_atom_list)-1)
+                    else:
+                        inter_num = id_count
                     inter_atom_list[inter_num]= Atom(Element(inter_atom_types[atom_index]),ID='INTER'+str(id_count))
                     id_count+=1
             if len(inter_atom_list)>len(self.inter_positions):
@@ -976,27 +982,63 @@ def Diffusion_flux (crys:Config):
     event_vectors = (all_events[:,3:] - all_events[:,:3])* (10**(-8)) #cm
     total_dist_traveled = sum( np.sqrt(event_vectors[:,0]**2 + event_vectors[:,1]**2 + event_vectors[:,2]**2) )  #cm
     #tot_vector = sum(abs(event_vectors)) #cm
+    #tot_vector_dist = Magnitude(tot_vector)
     #total_x_comp = np.array([sum(event_vectors[:,0]), 0, 0])
     #total_y_comp = np.array([0, sum(event_vectors[:,1]), 0])
     #total_z_comp = np.array([0,0, sum(event_vectors[:,2])])
 
-    percent_aa = sum(abs(np.dot(event_vectors, V_aa)))
-    percent_ab = sum(abs(np.dot(event_vectors, V_ab)))
-    percent_ac = sum(abs(np.dot(event_vectors, V_ac)))
+    V_aa_reshape = np.tile(V_aa, (len(event_vectors),1))
+    V_ab_reshape = np.tile(V_ab, (len(event_vectors),1))
+    V_ac_reshape = np.tile(V_ac, (len(event_vectors),1))
 
-    percent_ba = sum(abs(np.dot(event_vectors, V_ba)))
-    percent_bb = sum(abs(np.dot(event_vectors, V_bb)))
-    percent_bc = sum(abs(np.dot(event_vectors, V_bc)))
+    V_ba_reshape = np.tile(V_ba, (len(event_vectors),1))
+    V_bb_reshape = np.tile(V_bb, (len(event_vectors),1))
+    V_bc_reshape = np.tile(V_bc, (len(event_vectors),1))
 
-    percent_ca = sum(abs(np.dot(event_vectors, V_ca)))
-    percent_cb = sum(abs(np.dot(event_vectors, V_cb)))
-    percent_cc = sum(abs(np.dot(event_vectors, V_cc)))
+    V_ca_reshape = np.tile(V_ca, (len(event_vectors),1))
+    V_cb_reshape = np.tile(V_cb, (len(event_vectors),1))
+    V_cc_reshape = np.tile(V_cc, (len(event_vectors),1))
+
+    per_aa_vect = (np.reshape(np.dot(event_vectors, V_aa),(len(event_vectors),1))*V_aa_reshape)/(np.dot(V_aa,V_aa))
+    percent_aa = sum(( np.sqrt(per_aa_vect[:,0]**2 + per_aa_vect[:,1]**2 + per_aa_vect[:,2]**2) ))
+    #print(percent_aa/total_dist_traveled)
+    per_ab_vect = (np.reshape(np.dot(event_vectors, V_ab),(len(event_vectors),1))*V_ab_reshape)/(np.dot(V_ab,V_ab))
+    percent_ab = sum(( np.sqrt(per_ab_vect[:,0]**2 + per_ab_vect[:,1]**2 + per_ab_vect[:,2]**2) ))
+    #percent_ab = sum(abs(np.dot(event_vectors, V_ab)))
+    per_ac_vect = (np.reshape(np.dot(event_vectors, V_ac),(len(event_vectors),1))*V_ac_reshape)/(np.dot(V_ac,V_ac))
+    percent_ac = sum(( np.sqrt(per_ac_vect[:,0]**2 + per_ac_vect[:,1]**2 + per_ac_vect[:,2]**2) ))
+    #percent_ac = sum(abs(np.dot(event_vectors, V_ac)))
+
+    per_ba_vect = (np.reshape(np.dot(event_vectors, V_ba),(len(event_vectors),1))*V_ba_reshape)/(np.dot(V_ba,V_ba))
+    percent_ba = sum(( np.sqrt(per_ba_vect[:,0]**2 + per_ba_vect[:,1]**2 + per_ba_vect[:,2]**2) ))
+    #percent_ba = sum(abs(np.dot(event_vectors, V_ba)))
+    per_bb_vect = (np.reshape(np.dot(event_vectors, V_bb),(len(event_vectors),1))*V_bb_reshape)/(np.dot(V_bb,V_bb))
+    percent_bb = sum(( np.sqrt(per_bb_vect[:,0]**2 + per_bb_vect[:,1]**2 + per_bb_vect[:,2]**2) ))
+    #percent_bb = sum(abs(np.dot(event_vectors, V_bb)))
+    per_bc_vect = (np.reshape(np.dot(event_vectors, V_bc),(len(event_vectors),1))*V_bc_reshape)/(np.dot(V_bc,V_bc))
+    percent_bc = sum(( np.sqrt(per_bc_vect[:,0]**2 + per_bc_vect[:,1]**2 + per_bc_vect[:,2]**2) ))
+    #percent_bc = sum(abs(np.dot(event_vectors, V_bc)))
+
+    per_ca_vect = (np.reshape(np.dot(event_vectors, V_ca),(len(event_vectors),1))*V_ca_reshape)/(np.dot(V_ca,V_ca))
+    percent_ca = sum(( np.sqrt(per_ca_vect[:,0]**2 + per_ca_vect[:,1]**2 + per_ca_vect[:,2]**2) ))
+    #percent_ca = sum(abs(np.dot(event_vectors, V_ca)))
+    per_cb_vect = (np.reshape(np.dot(event_vectors, V_cb),(len(event_vectors),1))*V_cb_reshape)/(np.dot(V_cb,V_cb))
+    percent_cb = sum(( np.sqrt(per_cb_vect[:,0]**2 + per_cb_vect[:,1]**2 + per_cb_vect[:,2]**2) ))
+    #percent_cb = sum(abs(np.dot(event_vectors, V_cb)))
+    per_cc_vect = (np.reshape(np.dot(event_vectors, V_cc),(len(event_vectors),1))*V_cc_reshape)/(np.dot(V_cc,V_cc))
+    percent_cc = sum(( np.sqrt(per_cc_vect[:,0]**2 + per_cc_vect[:,1]**2 + per_cc_vect[:,2]**2) ))
+    #percent_cc = sum(abs(np.dot(event_vectors, V_cc)))
 
     #print(sum(abs(np.dot(event_vectors, V_ba)))/total_dist_traveled)
 
     diffusion_flux = ((len(all_events)*sum(crys.inter_ratio))/(crys.time*total_dist_traveled)) * np.array([[percent_aa/Magnitude(V_aa), percent_ab/Magnitude(V_ab), percent_ac/Magnitude(V_ac)],
                                                                                    [percent_ba/Magnitude(V_ba), percent_bb/Magnitude(V_bb), percent_bc/Magnitude(V_bc)],
                                                                                    [percent_ca/Magnitude(V_ca), percent_cb/Magnitude(V_cb), percent_cc/Magnitude(V_cc)]])
+    A_aa = Magnitude(V_aa)
+    #print(A_aa)
+    #print((percent_aa+percent_ab+percent_ac+percent_ba+percent_bb+percent_bc+percent_ca+percent_cb+percent_cc)/total_dist_traveled)
+    #print(((len(all_events)*sum(crys.inter_ratio))/(crys.time*total_dist_traveled))/A_aa)
+    #print(percent_aa/Magnitude(V_aa))
 
     return diffusion_flux
 
@@ -1093,9 +1135,9 @@ def rates_of_All_Events (crys:Config, possible_events:list, ifOcta__tetra:np.arr
     tetraToOcta = E_a + delta_E_a #eV
     energy_barrier = np.reshape(octaToTetra*ifOcta__tetra + tetraToOcta*(abs(ifOcta__tetra-1)),(len(possible_events),1))
     #energy_barrier = np.ones((len(possible_events),1)) * T_O_energy
-    #energy_initial = np.zeros((len(possible_events),1)) #change, found using vasp DFT
+    energy_initial = np.zeros((len(possible_events),1)) #change, found using vasp DFT?
 
-    rates_AE = attempt_freq * np.exp(-1*(energy_barrier)/(k_B*T) )
+    rates_AE = attempt_freq * np.exp(-1*(energy_barrier-energy_initial)/(k_B*T) )
     return rates_AE
 
 def kMC_Main (crys:Config, diffusion, temp, E_a, delta_E_a, iteration):
@@ -1144,7 +1186,7 @@ def kMC_Main (crys:Config, diffusion, temp, E_a, delta_E_a, iteration):
 
 start_time = time.time()
 
-bcc = Config('zincblende',4.27,['Ga','N'], [1,1], [], [], ['H'],[1], 5,5,5, randm=True)
+bcc = Config('zincblende',4.27,['Ga','N'], [1,1], [], [], ['H'],[100], 5,5,5, randm=False)
 print(len(bcc.all_positions))
 print(len(bcc.nearest_neighbor[0]))
 #print(bcc.lat_positions)
@@ -1170,16 +1212,16 @@ temp = 300 #K
 #e011 = 1
 #e111 = 2
 
-E_a = 0.2 #eV
+E_a = 0.7 #eV
 delta_E_a = 0.3 #eV
 
 diffusion = Diffusivity_based_on_energy(E_a, delta_E_a, T=temp) #cm^2/s
 print(diffusion)
-for iteration in range(1010):
+for iteration in range(2000):
     kMC_Main(bcc, diffusion, temp, E_a, delta_E_a, iteration+1)
     #print(crys_new.all_atoms==crys.all_atoms)
     #crys = crys_new
-    if iteration%1000 ==0:
+    if (iteration+1)%1000 ==0:
         print(iteration)
         print(bcc.diffusivity)
         #print(np.mean(bcc.diffusivity))
