@@ -182,6 +182,9 @@ class Config:
         '''
         self.time = 0
         self.MSD = 0
+        self.MSD_a = [0]
+        self.MSD_b = [0]
+        self.MSD_c = [0]
         self.all_occurred_events = []
         self.diffusivity = np.array([[0,0,0],[0,0,0],[0,0,0]])
         self.struct = struct
@@ -620,9 +623,10 @@ class Config:
                                                                                  (np.sqrt(19)*lattice_a/4), np.sqrt(3/2)*lattice_a])
             
             #Total possible events for this system
+            self.nearest_dist = (np.sqrt(3)*0.25*lattice_a)
             self.inter_nearest_neighbor,self.total_possible_events_first = self.Total_possible_events(self.inter_positions, 
                                                                                                         self.maxNN_natoms,
-                                                                                                        [(np.sqrt(3)*0.25*lattice_a)]) #,self.total_possible_events_second
+                                                                                                        [self.nearest_dist]) #,self.total_possible_events_second
             #Making string versions of the positions and nearest neighbors
             self.str_inter_positions = np.array(['-1,-1,-1']+[",".join(item) for item in 
                                                             np.tile(self.inter_positions,(self.maxNN_natoms,1)).astype(str)])
@@ -730,6 +734,7 @@ class Config:
                                                                                  #np.sqrt(2)*lattice_a,np.sqrt(8/3)*lattice_a])
 
             #Total possible events for this system
+            self.nearest_dist = (np.sqrt(3/8)*lattice_a)
             self.inter_nearest_neighbor,self.total_possible_events_first = self.Total_possible_events(self.inter_positions, 
                                                                                                                                        self.maxNN_natoms,
                                                                                                                                        [(np.sqrt(3/8)*lattice_a),
@@ -953,7 +958,64 @@ def Diffusivity_based_on_energy (E_a, delta_E_a, T:float, eV=True):
                           [(D_0*(np.exp(-E_a/(k_B*T)))+np.exp(-E_TtO/(k_B*T))), (D_0*(np.exp(-E_a/(k_B*T)))+np.exp(-E_TtO/(k_B*T))), (D_0*2*(np.exp(-E_a/(k_B*T)))+np.exp(-E_TtO/(k_B*T)))]])
     return diffusion
 
-def Diffusion_flux (crys:Config):
+def MSD (crys:Config):
+    events = np.array(crys.all_occurred_events)[:,:3]*10**(-8) #cm
+    #MSD_a = []
+    #MSD_b = []
+    #MSD_c = []
+    #for n in range(0,len(events)):
+    #    MSD_a = MSD_a + [sum((events[n:,0]-events[n,0])**2)/(len(events)-n)]
+    #    MSD_b = MSD_b + [sum((events[n:,1]-events[n,1])**2)/(len(events)-n)]
+    #    MSD_c = MSD_c + [sum((events[n:,2]-events[n,2])**2)/(len(events)-n)]
+    #MSD = np.array([[np.mean(MSD_a), 0, 0],
+    #                [0, np.mean(MSD_b), 0],
+    #                [0, 0, np.mean(MSD_c)]])
+    A = crys.basis_vectors[0]
+    B = crys.basis_vectors[1]
+    C = crys.basis_vectors[2]
+    A_tiled = np.tile(A, (len(events),1))
+    B_tiled = np.tile(B, (len(events),1))
+    C_tiled = np.tile(C, (len(events),1))
+
+    events_a = (np.reshape(np.dot(events, A),(len(events),1))*A_tiled)/(np.dot(A,A))
+    mag_events_a = np.sqrt(events_a[:,0]**2 + events_a[:,1]**2 + events_a[:,2]**2)
+    events_b = (np.reshape(np.dot(events, B),(len(events),1))*B_tiled)/(np.dot(B,B))
+    mag_events_b = np.sqrt(events_b[:,0]**2 + events_b[:,1]**2 + events_b[:,2]**2)
+    events_c = (np.reshape(np.dot(events, C),(len(events),1))*C_tiled)/(np.dot(C,C))
+    mag_events_c = np.sqrt(events_c[:,0]**2 + events_c[:,1]**2 + events_c[:,2]**2)
+
+    #events_tiled_a = np.tril(np.tile(mag_events_a,(len(events),1))-np.reshape(mag_events_a,(len(events),1)),-1)
+    #events_tiled_b = np.tril(np.tile(mag_events_b,(len(events),1))-np.reshape(mag_events_b,(len(events),1)),-1)
+    #events_tiled_c = np.tril(np.tile(mag_events_c,(len(events),1))-np.reshape(mag_events_c,(len(events),1)),-1)
+
+    len_N = -1*np.arange(len(events))+len(events)
+    MSD_a_addition = ((-1*mag_events_a + mag_events_a[-1])**2)/len_N
+    crys.MSD_a = list(np.array(crys.MSD_a)+MSD_a_addition)
+    crys.MSD_a.append(0)
+
+    MSD_b_addition = ((-1*mag_events_b + mag_events_b[-1])**2)/len_N
+    crys.MSD_b = list(np.array(crys.MSD_b)+MSD_b_addition)
+    crys.MSD_b.append(0)
+
+    MSD_c_addition = ((-1*mag_events_c + mag_events_c[-1])**2)/len_N
+    crys.MSD_c = list(np.array(crys.MSD_c)+MSD_c_addition)
+    crys.MSD_c.append(0)
+
+    #events_tiled_a = np.tril(np.tile(events[:,0],(len(events),1))-np.reshape(events[:,0],(len(events),1)),-1)
+    #events_tiled_b = np.tril(np.tile(events[:,1],(len(events),1))-np.reshape(events[:,1],(len(events),1)),-1)
+    #events_tiled_c = np.tril(np.tile(events[:,2],(len(events),1))-np.reshape(events[:,2],(len(events),1)),-1)
+
+    #MSD_a = (sum((events_tiled_a**2))/len_N)[:-1]
+    #MSD_b = (sum((events_tiled_b**2))/len_N)[:-1]
+    #MSD_c = (sum((events_tiled_c**2))/len_N)[:-1]
+
+    #MSD = np.array([[np.mean(MSD_a), 0, 0],
+    #                [0, np.mean(MSD_b), 0],
+    #                [0, 0, np.mean(MSD_c)]])
+    
+    return crys
+
+def Found_diffusivity (crys:Config):
     a_vect = crys.basis_vectors[0]*(10**(-8)) #x in cm
     b_vect = crys.basis_vectors[1]*(10**(-8)) #y in cm
     c_vect = crys.basis_vectors[2]*(10**(-8)) #z in cm
@@ -1001,6 +1063,7 @@ def Diffusion_flux (crys:Config):
 
     per_aa_vect = (np.reshape(np.dot(event_vectors, V_aa),(len(event_vectors),1))*V_aa_reshape)/(np.dot(V_aa,V_aa))
     percent_aa = sum(( np.sqrt(per_aa_vect[:,0]**2 + per_aa_vect[:,1]**2 + per_aa_vect[:,2]**2) ))
+    #percent_aa = sum(abs(per_aa_vect))
     #print(percent_aa/total_dist_traveled)
     per_ab_vect = (np.reshape(np.dot(event_vectors, V_ab),(len(event_vectors),1))*V_ab_reshape)/(np.dot(V_ab,V_ab))
     percent_ab = sum(( np.sqrt(per_ab_vect[:,0]**2 + per_ab_vect[:,1]**2 + per_ab_vect[:,2]**2) ))
@@ -1014,6 +1077,7 @@ def Diffusion_flux (crys:Config):
     #percent_ba = sum(abs(np.dot(event_vectors, V_ba)))
     per_bb_vect = (np.reshape(np.dot(event_vectors, V_bb),(len(event_vectors),1))*V_bb_reshape)/(np.dot(V_bb,V_bb))
     percent_bb = sum(( np.sqrt(per_bb_vect[:,0]**2 + per_bb_vect[:,1]**2 + per_bb_vect[:,2]**2) ))
+    #percent_bb = sum(abs(per_bb_vect))
     #percent_bb = sum(abs(np.dot(event_vectors, V_bb)))
     per_bc_vect = (np.reshape(np.dot(event_vectors, V_bc),(len(event_vectors),1))*V_bc_reshape)/(np.dot(V_bc,V_bc))
     percent_bc = sum(( np.sqrt(per_bc_vect[:,0]**2 + per_bc_vect[:,1]**2 + per_bc_vect[:,2]**2) ))
@@ -1027,6 +1091,7 @@ def Diffusion_flux (crys:Config):
     #percent_cb = sum(abs(np.dot(event_vectors, V_cb)))
     per_cc_vect = (np.reshape(np.dot(event_vectors, V_cc),(len(event_vectors),1))*V_cc_reshape)/(np.dot(V_cc,V_cc))
     percent_cc = sum(( np.sqrt(per_cc_vect[:,0]**2 + per_cc_vect[:,1]**2 + per_cc_vect[:,2]**2) ))
+    #percent_cc = sum(abs(per_cc_vect))
     #percent_cc = sum(abs(np.dot(event_vectors, V_cc)))
 
     #print(sum(abs(np.dot(event_vectors, V_ba)))/total_dist_traveled)
@@ -1034,25 +1099,54 @@ def Diffusion_flux (crys:Config):
     diffusion_flux = ((len(all_events)*sum(crys.inter_ratio))/(crys.time*total_dist_traveled)) * np.array([[percent_aa/Magnitude(V_aa), percent_ab/Magnitude(V_ab), percent_ac/Magnitude(V_ac)],
                                                                                    [percent_ba/Magnitude(V_ba), percent_bb/Magnitude(V_bb), percent_bc/Magnitude(V_bc)],
                                                                                    [percent_ca/Magnitude(V_ca), percent_cb/Magnitude(V_cb), percent_cc/Magnitude(V_cc)]])
+    
+    #diffusion_flux = ((len(all_events)*sum(crys.inter_ratio))/(crys.time*total_dist_traveled)) * np.array([percent_aa/Magnitude(V_aa), 
+    #                                                                                                       percent_bb/Magnitude(V_bb), 
+    #                                                                                                       percent_cc/Magnitude(V_cc)])
+    #print(diffusion_flux)
     A_aa = Magnitude(V_aa)
     #print(A_aa)
     #print((percent_aa+percent_ab+percent_ac+percent_ba+percent_bb+percent_bc+percent_ca+percent_cb+percent_cc)/total_dist_traveled)
     #print(((len(all_events)*sum(crys.inter_ratio))/(crys.time*total_dist_traveled))/A_aa)
     #print(percent_aa/Magnitude(V_aa))
 
-    return diffusion_flux
-
-def Found_diffusivity (crys:Config):
-    diffusion_flux = Diffusion_flux(crys)
-
-    a_vect = crys.basis_vectors[0]*(10**(-8)) #cm
-    b_vect = crys.basis_vectors[1]*(10**(-8)) #cm
-    c_vect = crys.basis_vectors[2]*(10**(-8)) #cm
-
+    #gradient of the concentration --------------------------------------------------------------------------------------
+    pos = crys.nx*0.5*crys.basis_vectors[0,0]*10**(-8)
     V_product = ( c_vect[0]*(a_vect[1]*b_vect[2]-a_vect[2]*b_vect[1]) 
                  - c_vect[1]*(a_vect[0]*b_vect[2]-a_vect[2]*b_vect[0]) 
                  + c_vect[2]*(a_vect[0]*b_vect[1]-a_vect[1]*b_vect[0]) )
-    gradient_concentration = ((-1*sum(crys.inter_ratio))/(crys.nx*crys.ny*crys.nz*V_product))*np.array([1/crys.nx, 1/crys.ny, 1/crys.nz])
+    n_xyz = (np.array(crys.inter_atoms)!='X')
+    x_coor, x_index = np.unique(crys.inter_positions[:,0]*10**(-8), return_index=True)
+    id_care,x_inverse, x_counts = np.unique(crys.inter_positions[:,0]*n_xyz, return_inverse=True, return_counts=True)
+    amount_x = n_xyz[x_index]*(x_counts[x_inverse])[x_index]
+    N_x_derivative = np.poly1d(np.polyfit(x_coor,amount_x, 5)).deriv()
+    #print(N_x_derivative(crys.nx*0.5*crys.basis_vectors[0,0]*10**(-8)))
+
+    y_coor, y_index = np.unique(crys.inter_positions[:,1]*10**(-8), return_index=True)
+    id_care,y_inverse, y_counts = np.unique(crys.inter_positions[:,1]*n_xyz, return_inverse=True, return_counts=True)
+    amount_y = n_xyz[y_index]*(y_counts[y_inverse])[y_index]
+    N_y_derivative = np.poly1d(np.polyfit(y_coor,amount_y, 5)).deriv()
+    #print(N_y_derivative(crys.nx*0.5*crys.basis_vectors[0,0]*10**(-8)))
+
+    z_coor, z_index = np.unique(crys.inter_positions[:,2]*10**(-8), return_index=True)
+    id_care,z_inverse, z_counts = np.unique(crys.inter_positions[:,2]*n_xyz, return_inverse=True, return_counts=True)
+    amount_z = n_xyz[z_index]*(z_counts[z_inverse])[z_index]
+    N_z_derivative = np.poly1d(np.polyfit(z_coor,amount_z, 5)).deriv()
+    #print(N_z_derivative(crys.nx*0.5*crys.basis_vectors[0,0]*10**(-8)))
+
+    N_vect = np.array([N_x_derivative(pos),N_y_derivative(pos),N_z_derivative(pos)])
+    N_xy = Magnitude(np.dot(N_vect, V_ab)*V_ab/(np.dot(V_ab,V_ab)))
+    N_xz = Magnitude(np.dot(N_vect, V_ac)*V_ac/(np.dot(V_ac,V_ac)))
+
+    N_yx = Magnitude(np.dot(N_vect, V_ba)*V_ba/(np.dot(V_ba,V_ba)))
+    N_yz = Magnitude(np.dot(N_vect, V_bc)*V_bc/(np.dot(V_bc,V_bc)))
+    
+    N_zx = Magnitude(np.dot(N_vect, V_ca)*V_ca/(np.dot(V_ca,V_ca)))
+    N_zy = Magnitude(np.dot(N_vect, V_cb)*V_cb/(np.dot(V_cb,V_cb)))
+
+    gradient_concentration = ((-1*sum(crys.inter_ratio))/(crys.nx*crys.ny*crys.nz*V_product))*np.array([[abs(N_x_derivative(pos)), N_xy, N_xz],
+                                                                                                        [N_yx, abs(N_y_derivative(pos)), N_yz],
+                                                                                                        [N_zx, N_zy, abs(N_z_derivative(pos))]])
 
     diffusivity = -1*diffusion_flux/(gradient_concentration)
 
@@ -1119,7 +1213,7 @@ def All_Events(crys:Config):
             
     return Possible_Events, Octa_to_tetraBool
 
-def rates_of_All_Events (crys:Config, possible_events:list, ifOcta__tetra:np.array,T, E_a, delta_E_a):
+def rates_of_All_Events (crys:Config, possible_events:list, ifOcta__tetra:np.array,T, E_a, delta_E_a, q_inter, q_octa, q_tetra):
     '''
     
     '''
@@ -1127,12 +1221,19 @@ def rates_of_All_Events (crys:Config, possible_events:list, ifOcta__tetra:np.arr
     k_B = 8.617333262 * (10**(-5)) #eV/K
 
     #each of these should be an array of shape nx1 where n = len(possible_events)
-    attempt_freq = np.ones((len(possible_events),1))*(10**(13)) #s^-1
+    attempt_freq = (10**(13)) #s^-1
 
     #planes = abs(Plane_corresponding_movement(crys, possible_events))
     #energy_barrier = Corresponding_plane_energy(E_100, E_010, E_001, E_110, E_101, E_011, E_111, planes)
-    octaToTetra = E_a #eV
-    tetraToOcta = E_a + delta_E_a #eV
+    e = 1.602 * 10**(-19) #C
+    k_0 = 8.99 * 10**(9) #N*m^2/C^2
+    r = crys.nearest_dist * 10**(-10) #m
+    E_electric_octa = k_0 * (q_inter*q_octa*e)/r #
+    E_electric_tetra = k_0 * (q_inter*q_tetra*e)/r
+    delta_E_electric = E_electric_octa - E_electric_tetra
+
+    octaToTetra = E_a + E_electric_octa #eV
+    tetraToOcta = E_a + delta_E_a + delta_E_electric #eV
     energy_barrier = np.reshape(octaToTetra*ifOcta__tetra + tetraToOcta*(abs(ifOcta__tetra-1)),(len(possible_events),1))
     #energy_barrier = np.ones((len(possible_events),1)) * T_O_energy
     energy_initial = np.zeros((len(possible_events),1)) #change, found using vasp DFT?
@@ -1140,7 +1241,7 @@ def rates_of_All_Events (crys:Config, possible_events:list, ifOcta__tetra:np.arr
     rates_AE = attempt_freq * np.exp(-1*(energy_barrier-energy_initial)/(k_B*T) )
     return rates_AE
 
-def kMC_Main (crys:Config, diffusion, temp, E_a, delta_E_a, iteration):
+def kMC_Main (crys:Config, diffusion, temp, E_a, delta_E_a, iteration, q_inter, q_octa, q_tetra):
     '''
     Determines an event/pathway and moves the atom accordingly
 
@@ -1153,7 +1254,7 @@ def kMC_Main (crys:Config, diffusion, temp, E_a, delta_E_a, iteration):
         return crys
     
     #Choose an event
-    rates_of_events = rates_of_All_Events(crys, possible_events, ifOctaToTetra, temp, E_a, delta_E_a)
+    rates_of_events = rates_of_All_Events(crys, possible_events, ifOctaToTetra, temp, E_a, delta_E_a, q_inter, q_octa, q_tetra)
     W_k = np.cumsum(rates_of_events)
     random_num = random.randrange(0,1000)/1000
     event_occurs = np.where(W_k >= random_num*sum(rates_of_events))[0][0]
@@ -1178,15 +1279,23 @@ def kMC_Main (crys:Config, diffusion, temp, E_a, delta_E_a, iteration):
     delta_time = float(-1*(np.log(time_random_num))/(sum(rates_of_events)))
     crys.time = crys.time + delta_time
 
-    Diffusion = Found_diffusivity(crys)
-    crys.diffusivity = Diffusion
-    crys.MSD = 2*3*Diffusion*(crys.time/iteration)*np.array([[4,2,2],[2,4,2],[2,2,4]]) #cm^2
+    #Diffusion = Found_diffusivity(crys)
+    #if len(crys.all_occurred_events)==1:
+    #    crys.MSD = np.array([[0,0,0],[0,0,0],[0,0,0]])
+    #else:
+    #    crys.MSD = MSD(crys)#2*3*Diffusion*(crys.time/iteration)*np.array([[4,2,2],[2,4,2],[2,2,4]]) #cm^2
+    MSD(crys)
+    crys.MSD = np.array([[np.mean(crys.MSD_a[:-1]), 0, 0],
+                         [0, np.mean(crys.MSD_b[:-1]), 0],
+                         [0, 0, np.mean(crys.MSD_c[:-1])]])
+    crys.diffusivity = (crys.MSD*iteration)/(2*3*crys.time)
+    #crys.diffusivity = Diffusion
 
     return crys
 
 start_time = time.time()
 
-bcc = Config('zincblende',4.27,['Ga','N'], [1,1], [], [], ['H'],[100], 5,5,5, randm=False)
+bcc = Config('zincblende',4.27,['Ga','N'], [1,1], [], [], ['H'],[1], 5,5,5, randm=True)
 print(len(bcc.all_positions))
 print(len(bcc.nearest_neighbor[0]))
 #print(bcc.lat_positions)
@@ -1203,7 +1312,7 @@ POSCAR_saveFile ('../test_sample_frac.vasp',bcc, cartesian=False, show_inter=Tru
 Config_saveFile ('../test.cfg',bcc, show_inter=True)
 iteration_start_time = time.time()
 
-temp = 300 #K
+temp = 400 #K
 #e100 = 1 #eV
 #e010 = 1
 #e001 = 1
@@ -1213,21 +1322,28 @@ temp = 300 #K
 #e111 = 2
 
 E_a = 0.7 #eV
-delta_E_a = 0.3 #eV
+delta_E_a = -0.5 #eV
+q_inter = 0 #H
+q_octa = -3 #N
+q_tetra = 3 #Ga
 
 diffusion = Diffusivity_based_on_energy(E_a, delta_E_a, T=temp) #cm^2/s
-print(diffusion)
-for iteration in range(2000):
-    kMC_Main(bcc, diffusion, temp, E_a, delta_E_a, iteration+1)
+#print(diffusion)
+for iteration in range(10000):
+    kMC_Main(bcc, diffusion, temp, E_a, delta_E_a, iteration+1, q_inter, q_octa, q_tetra)
+    #POSCAR_saveFile ('../'+str(iteration)+'_test.vasp',bcc, cartesian=True, show_inter=True, show_X=False)
     #print(crys_new.all_atoms==crys.all_atoms)
     #crys = crys_new
     if (iteration+1)%1000 ==0:
-        print(iteration)
+        print(iteration+1)
         print(bcc.diffusivity)
+        #print(len(bcc.MSD_a))
         #print(np.mean(bcc.diffusivity))
         #print(bcc.MSD)
 #print(bcc.time)
 #print(bcc.MSD)
+#print(bcc.diffusivity)
+#print(bcc.MSD_a)
 print("Iterations --- %s seconds ---" % (time.time() - iteration_start_time))
 POSCAR_saveFile ('../final_test.vasp',bcc, cartesian=True, show_inter=True, show_X=False)
 print("Total --- %s seconds ---" % (time.time() - start_time))
