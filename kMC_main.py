@@ -1,6 +1,7 @@
 import numpy as np
 import random
 import time
+import matplotlib.pyplot as plt
 
 class Element:
     elements = ['X','Ga','N','H','Si','O', 'Mg']
@@ -1295,7 +1296,7 @@ def kMC_Main (crys:Config, diffusion, temp, E_a, delta_E_a, iteration, q_inter, 
 
 start_time = time.time()
 
-bcc = Config('zincblende',4.27,['Ga','N'], [1,1], [], [], ['H'],[1], 5,5,5, randm=True)
+bcc = Config('zincblende',4.27,['Ga','N'], [1,1], [], [], ['H'],[1], 1,1,1, randm=True)
 print(len(bcc.all_positions))
 print(len(bcc.nearest_neighbor[0]))
 #print(bcc.lat_positions)
@@ -1312,7 +1313,7 @@ POSCAR_saveFile ('../test_sample_frac.vasp',bcc, cartesian=False, show_inter=Tru
 Config_saveFile ('../test.cfg',bcc, show_inter=True)
 iteration_start_time = time.time()
 
-temp = 400 #K
+temp = 300 #K
 #e100 = 1 #eV
 #e010 = 1
 #e001 = 1
@@ -1321,16 +1322,24 @@ temp = 400 #K
 #e011 = 1
 #e111 = 2
 
-E_a = 0.7 #eV
-delta_E_a = -0.5 #eV
+E_a = 0.2 #eV
+delta_E_a = 0.3 #eV
 q_inter = 0 #H
 q_octa = -3 #N
 q_tetra = 3 #Ga
 
 diffusion = Diffusivity_based_on_energy(E_a, delta_E_a, T=temp) #cm^2/s
 #print(diffusion)
-for iteration in range(10000):
+MSD_x = []
+MSD_y = []
+MSD_z = []
+kmc_time = []
+for iteration in range(20000):
     kMC_Main(bcc, diffusion, temp, E_a, delta_E_a, iteration+1, q_inter, q_octa, q_tetra)
+    MSD_x.append(bcc.MSD[0,0])
+    MSD_y.append(bcc.MSD[1,1])
+    MSD_z.append(bcc.MSD[2,2])
+    kmc_time.append(bcc.time)
     #POSCAR_saveFile ('../'+str(iteration)+'_test.vasp',bcc, cartesian=True, show_inter=True, show_X=False)
     #print(crys_new.all_atoms==crys.all_atoms)
     #crys = crys_new
@@ -1347,3 +1356,16 @@ for iteration in range(10000):
 print("Iterations --- %s seconds ---" % (time.time() - iteration_start_time))
 POSCAR_saveFile ('../final_test.vasp',bcc, cartesian=True, show_inter=True, show_X=False)
 print("Total --- %s seconds ---" % (time.time() - start_time))
+
+fig = plt.figure(figsize=(32,24))
+plt.plot(kmc_time,MSD_x, color='green',label='X Direction', linewidth=8)
+plt.plot(kmc_time,MSD_y, color='tab:blue',label='Y Direction', linewidth=8)
+plt.plot(kmc_time,MSD_z, color='orange',label='Z Direction', linewidth=8)
+plt.xlabel('Time (s)', size=60)
+plt.xticks(fontsize=40)
+plt.ylabel('Mean Squared Displacement (cm^2)', size=60)
+plt.yticks(fontsize=50)
+plt.title('Mean Squared Displacement vs Time', size=70)
+plt.legend(fontsize=50)
+plt.savefig('../poster/MSD_vs_time_1.png')
+plt.show()
